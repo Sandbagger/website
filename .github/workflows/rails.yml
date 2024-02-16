@@ -1,0 +1,39 @@
+name: Rails CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install JavaScript dependencies
+        run: npm install
+
+      - name: Install Ruby dependencies
+        run: |
+          gem install bundler
+          bundle install --jobs 4 --retry 3
+
+      - name: Build assets with esbuild
+        run: bin/rails assets:precompile
+
+      - name: Set up Database
+        run: |
+          bin/rails db:environment:set RAILS_ENV=test
+          bin/rails db:create RAILS_ENV=test
+          bin/rails db:migrate RAILS_ENV=test
+
+      - name: Run Tests
+        run: bundle exec rails test
