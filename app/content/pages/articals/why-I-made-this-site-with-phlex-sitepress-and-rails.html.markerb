@@ -1,0 +1,30 @@
+---
+title: Why I made this site with Phlex, Sitepress,and Rails
+date: 2024-02-17
+topics: sitepress, phlex, ruby, rails
+---
+# Why I made this with Sitepress, Phlex, Rails
+
+## Take Phlex out for a spin
+
+Back in November 2022 I was [complaining about](https://ruby.social/@Sandbagger/109291211870644218) the state of frontend in Rails when Joel Drapper [brought Phlex to my attention](https://ruby.social/@joeldrapper/109291280794299814). 
+Initially I was [not keen](https://ruby.social/@Sandbagger/109296756635894618) of writing Ruby to generate HTML, but I recognised the promise of using language level features to define and compose components. 
+
+As React leverages Javascript itself in which function composition effectively become component composition, so to for Phlex utilizes Ruby classes and blocks to define and compose components. Personally, I think component driven frontend is a good idea, particularly as part of a design system where you want to ensure look and feel is consistent across one or more applications. 
+The tricky part is ensuring that the components are not just reusable, but extensible as you can't anticipate all the ways in which a component will be used. In Phlex being able to locally override element tag is pretty cool.
+
+Being exposed to Brad's proselytizing ([here](https://www.youtube.com/watch?v=qvCymKMzuhk), [here](https://fly.io/ruby-dispatch/component-driven-development-on-rails-with-phlex/))
+overcame my aversion to writing ruby to generate HTML, and this website became an excuse to try it out.
+
+## Stumbling into Sitepress
+Initially I felt using Rails for a blog/website that is mostly static was overkill. I tried Bridgetown but I didn't find a well documented onramp to Phlex. A spiked on a couple of ideas... a wacky approach of using Rails and then scraping the HTML to generate a static site, and exploring using markdown within Rails with High Voltage showed some potential...
+then I found [Sitepress](https://github.com/sitepress/sitepress). It offers an interesting value proposition, in that you can embed static pages within a Rails app, but also have the option of running it standalone static site generator which is made possible by the fact that it is self contained. 
+It also comes with a way to store metadata about the markdown files such as the title, date, categories, tags, etc... and gives you a way to query it. 
+
+I made peace with the idea of using Rails for a [semi-static site](https://fly.io/ruby-dispatch/semi-static-websites/), however there were a few kinks that needed to be ironed out by ejecting a Sitepress controller to get it to play nice with Phlex layout components and Phlex-markdown (more on this in a follow up post).  
+
+## Expansion in vision
+Listening to Brad Gessler on a podcast mentioned the idea of there being different phases to a new application. The first phase is heavy on the static content, focused on marketing and maybe harvesting the emails of potential customers, before subsequent phases of prototyping and having actually built the product.
+He sees the role of Sitepress to address this initial phase. I like this framing, and I think Phlex has a role to play ensuring the consistency in design between initial marketing phase and subsequent prototyping phase.
+
+I am going to use the development of this website to further hone this intuition and see if I can't make a compelling case for using Rails / Sitepress and Phlex in this way.
