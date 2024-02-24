@@ -1,19 +1,32 @@
 module Sitepress
   class SiteController < ::ApplicationController
     include Sitepress::SitePages
+
     layout false
 
     protected
 
     def page_layout(page)
-      ApplicationLayout.new do
-        PhlexMarkdownComponent.new(page.body).call.html_safe
+      ApplicationLayout.new do |layout|
+        layout.partial do
+          PhlexMarkdownComponent.new(page.body).call.html_safe
+        end
+
+        layout.partial do
+         render CollectionComponent.new(site.resources.glob("writing/*"))
+        end
       end
     end
 
     def application_layout(page)
       ApplicationLayout.new do
         PhlexMarkdownComponent.new(page.body).call.html_safe
+      end
+    end
+
+    def writing_layout(page)   
+      ApplicationLayout.new do
+        render CollectionComponent.new(page.children)
       end
     end
 
