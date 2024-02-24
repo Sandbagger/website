@@ -1,0 +1,76 @@
+---
+title: Embrace the cascade in your Rails app
+topic: ruby-on-rails, css, asset-pipeline
+published: 2023-08-17
+---
+
+# Embrace the cascade in your Rails app
+
+Sprockets stitches together css files in a non determinate order. This is an issue when we want to work with the cascade to arrange css files by ascending specificity. Read on to find out how you can instruct your css manifest file to embrace the cascade and how declaring cascade layers can help communicate your intention.
+
+## A bit of history
+HTTP1/1.1 was created in 1997, requests are processed sequentially, where each request has the ability to block subsequent requests. Because of this developers tried to limit the number of requests, which had a knock on effect of meaning bigger files. Working with a big file is no fun, from Rails 4x onwards Sprockets enabled developers to chunk CSS (and Javascript) files and then used a build step to concatenate these chunks of css into one file.
+
+In specific views  
+
+
+### Deafult CSS pipline
+
+[BEM](https://getbem.com/) constrains the cascade through the use of name spacing at the block level. The source order of CSS declarations is not import, as each block is its own fiefdom. In this way it sidesteps the cascade. The Rails asset pipeline supports this out of the box.
+
+For CSS methodologies that seek to embrace the cascade (see [here](https://cube.fyi/), [here](https://www.smashingmagazine.com/2016/11/css-inheritance-cascade-global-scope-new-old-worst-best-friends/), [here](https://www.xfive.co/blog/itcss-scalable-maintainable-css-architecture/)), further configuration is necessary. Source order is important when we want to judiciously override low specificity (global) declarations with higher specificity (local) declarations.
+
+### Configuring asset pipeline to embrace the cascade
+
+Rails CSS asset pipeline concatenates individual CSS files into one main CSS file. It is set up by default to not care about the source order of css files. To make it care we need to edit the application.css file. This file is a [manifest](https://guides.rubyonrails.org/asset_pipeline.html#manifest-files-and-directives) containing directives on how to stitch together CSS files. One of these directives, require_tree, instructs the asset pipeline to recursively include all css files in the directory. We want to replace this with a number of `require` directives, ordered from most general to most specific:
+
+From this...
+
+    /*
+    *= require_tree .
+    *= require_self
+    */
+
+to this...
+
+    /*
+    *= require reset
+    *= require global
+    *= require composition
+    *= require utility
+    *= require block
+    *= require_self
+    */
+
+The exact files will depend on the methodolody of
+This creates a little bit of a maintenance overhead. If we add a new css file we will need to remember to update the application.css file.
+
+### Declaring cascade layers
+
+By wrapping each css file into a @layer declaration...
+
+    //utility.css
+    @layer utility {
+        .bg-dark {
+        background: var(--color-dark);
+        }
+
+        ...other styles
+    }
+
+we can surface that particular layer in the dev tools...
+
+![Screen shot of dev tools showing declared layout](<%= asset_path('embrace-the-cascade/layout-in-dev-tools') %>)
+
+We can see what CSS declarations belong to which layer. The order of the require directives determines the precedence of the layers. Subsequent layers taking precedence. Any styles declared outside of a layer will take precedence over any styles declared within a layer.
+
+Note: the source order of the require directives is doing two jobs...
+
+1. determining the order in which css declarations appear
+2. determining the precedence of the declared cascade layers
+
+For browsers that don't support layers the source order of the css declarations will still be enforced by the source order of directives. In any event, [browser support is good](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer) across browsers.
+
+### Conclusion
+
+So there we have it, replace require_tree directive with a number of require directives, whose source order determines the order in which each layer of CSS declarations is inserted. Optionally, make each layer explicit in the dev tools by wrapping each file in a @layout declaration.
