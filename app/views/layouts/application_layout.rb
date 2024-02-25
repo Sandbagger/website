@@ -32,8 +32,7 @@ class ApplicationLayout < ApplicationView
 
       nav do
         cluster do
-          Sitepress.site.resources.each do |resource|
-            break if resource.request_path.count('/') > 1
+          Sitepress.site.resources.glob("*.html.*").each do |resource|
             li do
               link_to_page(resource)            
             end
