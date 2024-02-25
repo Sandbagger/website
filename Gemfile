@@ -6,9 +6,6 @@ ruby "3.2.2"
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 7.1.3"
 
-# The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
-gem "sprockets-rails"
-
 # Use sqlite3 as the database for Active Record
 gem "sqlite3", "~> 1.4"
 
@@ -89,3 +86,5 @@ gem "standard", "~> 1.33"
 gem 'phlex-markdown', git: 'https://github.com/phlex-ruby/phlex-markdown'
 
 gem "redcarpet", "~> 3.6"
+
+gem "propshaft", "~> 0.8.0"
