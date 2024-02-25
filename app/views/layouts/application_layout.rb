@@ -3,6 +3,7 @@
 class ApplicationLayout < ApplicationView
   include Phlex::Rails::Layout
   include Phlex::Rails::Helpers::ContentFor
+  include PageHelper
 
   def template(&block)
     doctype
