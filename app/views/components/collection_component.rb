@@ -10,8 +10,8 @@ class CollectionComponent < ApplicationComponent
   end
 
   def template
-    @collection.each do |resource|
-      ul do
+    ul do
+      @collection.each do |resource|
         li do 
           link_to_page(resource)
         end
