@@ -5,7 +5,7 @@ module PageHelper
   # below if you use a different key for page titles.
   def link_to_page(page, title_key: "title")
     if page == current_page
-      link_to page.data.fetch(title_key, page.request_path), page.request_path, class: 'active'
+      link_to page.data.fetch(title_key, page.request_path), page.request_path, class: "active"
     else
       link_to page.data.fetch(title_key, page.request_path), page.request_path
     end

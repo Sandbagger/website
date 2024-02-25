@@ -12,10 +12,11 @@ module Sitepress
         end
 
         layout.partial do
-         render CollectionComponent.new(
-          site.resources.glob("writing/*").select do |resource| 
-            resource.data["status"] != "draft" && Rails.env.production?
-          end)
+          render CollectionComponent.new(
+            site.resources.glob("writing/*").select do |resource|
+              resource.data["status"] != "draft" && Rails.env.production?
+            end
+          )
         end
       end
     end
@@ -26,13 +27,13 @@ module Sitepress
       end
     end
 
-    def writing_layout(page)   
+    def writing_layout(page)
       ApplicationLayout.new do
         render CollectionComponent.new(page.children)
       end
     end
 
-    def mastodon_layout(page)   
+    def mastodon_layout(page)
       ApplicationLayout.new do
         render CollectionComponent.new(page.children)
       end

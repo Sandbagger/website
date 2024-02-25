@@ -3,7 +3,6 @@
 class CollectionComponent < ApplicationComponent
   include ActionView::Helpers::UrlHelper
   include PageHelper
-   
 
   def initialize(collection)
     @collection = collection
@@ -12,7 +11,7 @@ class CollectionComponent < ApplicationComponent
   def template
     ul do
       @collection.each do |resource|
-        li do 
+        li do
           link_to_page(resource)
         end
       end
