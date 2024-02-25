@@ -32,7 +32,6 @@ class ApplicationLayout < ApplicationView
       nav do
         cluster do
           Sitepress.site.resources.glob("*.html.*").each do |resource|
-            pp 
             li do
               link_to_page(resource)            
             end
