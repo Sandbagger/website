@@ -3,7 +3,6 @@
 class ApplicationLayout < ApplicationView
   include Phlex::Rails::Layout
   include Phlex::Rails::Helpers::ContentFor
-  include PageHelper
 
   def template(&block)
     doctype
@@ -33,12 +32,13 @@ class ApplicationLayout < ApplicationView
       nav do
         cluster do
           Sitepress.site.resources.glob("*.html.*").each do |resource|
+            pp 
             li do
               link_to_page(resource)            
             end
           end
           li do
-            link_to "Mastodon", "https://ruby.social/@Sandbagger", target: "_blank", rel: "noopener noreferrer"
+            link_to "Mastodon", "https://ruby.social/@Sandbagger", target: "_blank", rel: "noopener noreferrer me"
           end
         end
       end
