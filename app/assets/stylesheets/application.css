@@ -1,5 +1,4 @@
-@import url('/reset.css');
-@import url('/global.css');
-@import url('/composition.css');
-@import url('/utility.css');
-@import url('/block.css');
+@import url('/global/index.css');
+@import url('/compositions/index.css');
+@import url('/utilities/index.css');
+@import url('/blocks/index.css');
