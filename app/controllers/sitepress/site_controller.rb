@@ -1,7 +1,6 @@
 module Sitepress
   class SiteController < ::ApplicationController
     include Sitepress::SitePages
-
     layout false
 
     protected
@@ -13,7 +12,10 @@ module Sitepress
         end
 
         layout.partial do
-         render CollectionComponent.new(site.resources.glob("writing/*"))
+         render CollectionComponent.new(
+          site.resources.glob("writing/*").select do |resource| 
+            resource.data["status"] != "draft" && Rails.env.production?
+          end)
         end
       end
     end
@@ -25,6 +27,12 @@ module Sitepress
     end
 
     def writing_layout(page)   
+      ApplicationLayout.new do
+        render CollectionComponent.new(page.children)
+      end
+    end
+
+    def mastodon_layout(page)   
       ApplicationLayout.new do
         render CollectionComponent.new(page.children)
       end
