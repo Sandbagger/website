@@ -30,18 +30,7 @@ class ApplicationLayout < ApplicationView
         link(rel: "mask-icon", href: "/safari-pinned-tab.svg", color: "#61b9d2")
       end
 
-      nav do
-        cluster do
-          Sitepress.site.resources.glob("*.html.*").each do |resource|
-            li do
-              link_to_page(resource)            
-            end
-          end
-          li do
-            link_to "Mastodon", "https://ruby.social/@Sandbagger", target: "_blank", rel: "noopener noreferrer me"
-          end
-        end
-      end
+      render NavComponent.new
 
       body(class: "center") do
         main(class: "flow", &block)
