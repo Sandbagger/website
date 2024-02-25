@@ -37,11 +37,14 @@ class ApplicationLayout < ApplicationView
               link_to_page(resource)            
             end
           end
+          li do
+            link_to "Mastodon", "https://ruby.social/@Sandbagger", target: "_blank", rel: "noopener noreferrer"
+          end
         end
       end
 
       body(class: "center") do
-        main(class: "stack", &block)
+        main(class: "flow", &block)
       end
     end
   end
