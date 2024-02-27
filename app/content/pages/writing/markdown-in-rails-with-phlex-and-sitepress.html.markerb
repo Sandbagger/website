@@ -6,11 +6,11 @@ status: publish
 ---
 
 # Markdown in Rails with Phlex and Sitepress
-Responding to [Lucien's](https://ruby.social/@lucian/111998966496640844) call to marketing week for Ruby projects here is a quick write
+Responding to [Lucien's](https://ruby.social/@lucian/111998966496640844) call to marketing week for Ruby projects, here is a quick write
 up on how to use markdown in Rails with Phlex and Sitepress.
 
 ## Why?
-I am big a big fan of what Brad Gessler is doing in the ruby space. In particular, in his appearance on this podcast [talk](https://www.youtube.com/watch?v=qvCymKMzuhk),
+I am big a big fan of what Brad Gessler is doing in the ruby space. In particular, in his appearance on this [podcast](https://www.youtube.com/watch?v=qvCymKMzuhk),
 he makes the point about the different phases of a project lifecycle, and the importance of making the gap between inspiration
 striking and deploying a landing page as a first step to realizing the vision as short as possible. 
 
