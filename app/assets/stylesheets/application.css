@@ -1,4 +1,12 @@
 @import url('/global/index.css');
-@import url('/compositions/index.css');
+
+@import url('/compositions/flow.css');
+@import url('/compositions/box.css');
+@import url('/compositions/center.css');
+@import url('/compositions/cluster.css');
+@import url('/compositions/stack.css');
+
+
 @import url('/utilities/index.css');
 @import url('/blocks/index.css');
+@import url('/compositions/flow.css');

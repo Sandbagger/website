@@ -4,6 +4,7 @@ body {
   font-family:  "Space Mono", monospace;
   font-size: var(--size-step-0);
   line-height: 1.7;
+  padding-bottom: 5em;
 }
 
 h1,

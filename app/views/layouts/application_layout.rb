@@ -39,6 +39,6 @@ class ApplicationLayout < ApplicationView
   end
 
   def partial(&)
-    section(&)
+    section(class: "flow", &)
   end
 end

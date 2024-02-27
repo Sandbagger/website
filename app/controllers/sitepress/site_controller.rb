@@ -11,13 +11,13 @@ module Sitepress
           PhlexMarkdownComponent.new(page.body).call.html_safe
         end
 
-        # layout.partial do
-        #   render CollectionComponent.new(
-        #     site.resources.glob("writing/*").select do |resource|
-        #       resource.data["status"] != "draft"
-        #     end
-        #   )
-        # end
+        layout.partial do
+          render CollectionComponent.new(
+            site.resources.glob("writing/*").select do |resource|
+              resource.data["status"] != "draft"
+            end
+          )
+        end
       end
     end
 
@@ -28,8 +28,10 @@ module Sitepress
     end
 
     def writing_layout(page)
-      ApplicationLayout.new do
-        render CollectionComponent.new(page.children)
+      ApplicationLayout.new do |layout|
+        layout.partial do
+          PhlexMarkdownComponent.new(page.body).call.html_safe
+        end
       end
     end
 
