@@ -11,13 +11,13 @@ module Sitepress
           PhlexMarkdownComponent.new(page.body).call.html_safe
         end
 
-        layout.partial do
-          render CollectionComponent.new(
-            site.resources.glob("writing/*").select do |resource|
-              resource.data["status"] != "draft" && Rails.env.production?
-            end
-          )
-        end
+        # layout.partial do
+        #   render CollectionComponent.new(
+        #     site.resources.glob("writing/*").select do |resource|
+        #       resource.data["status"] != "draft"
+        #     end
+        #   )
+        # end
       end
     end
 
