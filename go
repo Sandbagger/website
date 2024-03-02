@@ -76,6 +76,31 @@ function init_git_repo {
   [ -d .git/ ] && rm -rf .git/
 }
 
+function write {
+  echo "Enter the title for your blog post:"
+  read input
+
+  title=$(echo "$input" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2));}1')
+  filename=$(echo "$input" | tr ' ' '-' | tr '[:upper:]' '[:lower:]').makerb
+  filepath="app/content/pages/writing/$filename"
+  template="app/content/pages/writing/template.makerb"
+  
+  touch "app/content/pages/writing/$filename"
+
+  cp "$template" "$filepath"
+
+  # Try to handle the in-place editing in a cross-platform way
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+      # For macOS, which requires an empty string argument with -i
+      sed -i '' "s/title:/title: $title/" "$filepath"
+  else
+      # For Linux
+      sed -i "s/title:/title: $title/" "$filepath"
+  fi
+
+  echo "File $filename created in app/content/pages/writing/ based on template"
+}
+
 if [ "$1" == "up" ]; then
   up
 elif [ "$1" == "spec" ]; then
@@ -86,6 +111,8 @@ elif [ "$1" == "install" ]; then
   migrate
   elif [ "$1" == "init" ]; then
   init "${2}" "${3}"
+elif [ "$1" == "write" ]; then
+  write
 else
   usage
 fi
