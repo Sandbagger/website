@@ -1,0 +1,42 @@
+---
+title: Tag Overriding with Phlex in Markdown
+topic: phlex
+publish: 2024-03-03
+status: publish
+layout: writing
+---
+
+# Tag Overriding with Phlex in Markdown
+
+When I am writing markdown, I am writing markdown, I don't have access to the markup. 
+Sure, I can add [global styles](https://every-layout.dev/rudiments/global-and-local-styling/) but if I want to add any [block](https://cube.fyi/block.html#no-formal-element-syntax)
+styling I am out of luck.
+
+```
+// site_controller.rb
+
+    def page_layout(page)
+      ApplicationLayout.new do
+        PhlexMarkdownComponent.new(page.body).call.html_safe
+      end
+    end
+```
+
+One of the (many) cool things I like about [Phlex's](https://www.phlex.fun/) object orientated approach to the view layer is that I can use method overriding:
+
+```
+class PhlexMarkdownComponent < Phlex::Markdown
+  def ul
+    super(class: 'bullet')
+  end
+end
+
+```
+
+I decided to override the `ul` method at the level of PhlexMarkdownComponent - I could provide variants by sub-classing PhlexMarkdownComponent and providing different overrides. I could then use frontmatter to specify which variant to use.
+
+I am also thinking of using fontmatter to provide css variables to the markdown. This will enable me to, for example, make bullet points unicorns for a particular post only. 
+
+```   
+
+
