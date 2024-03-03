@@ -3,7 +3,7 @@
 class PhlexMarkdownComponent < Phlex::Markdown
   def initialize(page)
     @page = page
-    super(page.body.html_safe)
+    super(page.body)
   end
 
   def template

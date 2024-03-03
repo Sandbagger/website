@@ -9,7 +9,7 @@ module Sitepress
       # Rails does not let you pass stuff to layouts
       ApplicationLayout.new do |layout|
         layout.partial do
-          PhlexMarkdownComponent.new(page).call
+          PhlexMarkdownComponent.new(page).call.html_safe
         end
 
         layout.partial do
@@ -26,14 +26,14 @@ module Sitepress
 
     def application_layout(page)
       ApplicationLayout.new do
-        PhlexMarkdownComponent.new(page).call
+        PhlexMarkdownComponent.new(page).call.html_safe
       end
     end
 
     def writing_layout(page)
       ApplicationLayout.new do |layout|
         layout.partial do
-          PhlexMarkdownComponent.new(page).call
+          PhlexMarkdownComponent.new(page).call.html_safe
         end
       end
     end
