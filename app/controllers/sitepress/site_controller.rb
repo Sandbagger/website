@@ -16,7 +16,7 @@ module Sitepress
             site.resources.glob("writing/*").select do |resource|
               next if resource.data["publish"].nil?
               resource.data["publish"] <= Date.today
-            end.compact.sort_by { |resource| resource.data["publish_date"] }.reverse
+            end.compact.sort_by { |resource| resource.data["publish"] }.reverse
           )
         end
       end
