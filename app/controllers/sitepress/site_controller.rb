@@ -6,6 +6,7 @@ module Sitepress
     protected
 
     def page_layout(page)
+      Rails.logger.info "Page request: #{request.query_parameters.inspect}, User Agent: #{request.user_agent}, Referer: #{request.referer}"
       # Rails does not let you pass stuff to layouts
       ApplicationLayout.new do |layout|
         layout.partial do
