@@ -14,8 +14,9 @@ module Sitepress
         layout.partial do
           render CollectionComponent.new(
             site.resources.glob("writing/*").select do |resource|
-              resource.data["status"] != "draft"
-            end
+              next if resource.data["publish"].nil?
+              resource.data["publish"] <= Date.today
+            end.compact.sort_by { |resource| resource.data["publish_date"] }.reverse
           )
         end
       end
@@ -32,12 +33,6 @@ module Sitepress
         layout.partial do
           PhlexMarkdownComponent.new(page.body).call.html_safe
         end
-      end
-    end
-
-    def mastodon_layout(page)
-      ApplicationLayout.new do
-        render CollectionComponent.new(page.children)
       end
     end
 

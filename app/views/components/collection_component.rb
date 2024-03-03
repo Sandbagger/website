@@ -5,7 +5,7 @@ class CollectionComponent < ApplicationComponent
   include PageHelper
 
   def initialize(collection)
-    @collection = collection
+    @collection = collection || []
   end
 
   def template
