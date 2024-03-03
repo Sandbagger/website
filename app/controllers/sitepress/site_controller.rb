@@ -15,6 +15,7 @@ module Sitepress
           render CollectionComponent.new(
             site.resources.glob("writing/*").select do |resource|
               next if resource.data["publish"].nil?
+              next if resource == page
               resource.data["publish"] <= Date.today
             end.compact.sort_by { |resource| resource.data["publish"] }.reverse
           )
