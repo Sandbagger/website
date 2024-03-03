@@ -37,6 +37,5 @@ I decided to override the `ul` method at the level of PhlexMarkdownComponent - I
 
 I am also thinking of using fontmatter to provide css variables to the markdown. This will enable me to, for example, make bullet points unicorns for a particular post only. 
 
-```   
 
 
