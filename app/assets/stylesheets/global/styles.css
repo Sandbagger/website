@@ -55,7 +55,7 @@ blockquote {
   font-size: var(--size-step-1);
 } 
 
-:is(h1, h2, h3, blockquote) {
+:is(h1, h2, h3, blockquote, pre) {
   --flow-space: 1.5em;
 }
 
@@ -66,3 +66,30 @@ blockquote {
 article > * {
   align-items: start;
 }
+
+pre {
+  background-color: var(--color-light);
+  border-left: 3px solid var(--color-primary);
+  color: var(--color-dark);
+  page-break-inside: avoid;
+  font-family: monospace;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 1.6em;
+  max-width: 100%;
+  overflow: auto;
+  padding: 1em 1.5em;
+  display: block;
+  word-wrap: break-word;
+  box-shadow: 0 0 1rem rgba(0,0,0,.08)
+}
+
+code {
+  background-color: var(--color-light);
+  border-radius: 3px;
+  font-family: monospace;
+  padding: 0 5px;
+}
+
+
+

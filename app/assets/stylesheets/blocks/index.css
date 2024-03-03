@@ -1,0 +1,7 @@
+.bullet > * {
+  list-style: none;
+}
+
+.bullet > ::before {
+  content: var(--symbol, '🦄')'\0020';
+}
