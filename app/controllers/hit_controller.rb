@@ -6,6 +6,8 @@ class HitController < ApplicationController
   skip_before_action :verify_authenticity_token, only: [:handle]
   
   def handle
+    Rails.logger.info "Page view", request.query_parameters, request.user_agent, request.referer
+  
     send_data pixel, 
       type: 'image/gif', 
       disposition: 'inline',
