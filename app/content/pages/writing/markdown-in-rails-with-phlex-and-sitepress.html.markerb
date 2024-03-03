@@ -7,7 +7,7 @@ layout: writing
 ---
 
 # Markdown in Rails with Phlex and Sitepress
-Responding to [Lucien's](https://ruby.social/@lucian/111998966496640844) call to marketing week for Ruby projects, here is a quick write
+Responding to [Lucian's](https://ruby.social/@lucian/111998966496640844) call to marketing week for Ruby projects, here is a quick write
 up on how to use markdown in Rails with Phlex and Sitepress.
 
 ## Why?
@@ -35,9 +35,9 @@ I am not sure of the pros and cons of this as opposed to just using markdown ren
 There is an issue with the current (as of February 2024) version of phlex-markdown but there is a [fix](https://github.com/phlex-ruby/phlex-markdown/issues/6) already in a main branch which I reference in the gemfile. 
 
 Working with Phlex layout component with Sitepress involves ejecting a Sitepress controller.
-In this controller I call a generic phlex-markdown component to render the markdown.
+In this controller, I call a generic phlex-markdown component to render the markdown.
 
-I am not sure whether this is the best way to do this is, but it works! 
+I am not sure whether this is the best way to do this, but it works! 
 
 One thing I would like to do is support the use of erb inside of the markdown, but this is a work in progress.
 
