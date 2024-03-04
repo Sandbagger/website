@@ -1,7 +1,6 @@
 ---
 title: Css Only Hit Tracker
 topic: ruby, analytics, css
-publish: 2024-03-04
 ---
 
 # Css Only Hit Tracker
@@ -12,19 +11,16 @@ It all started with this [toot](https://ruby.social/@copiousfreetime/11201224130
 
 I thought it was an intriguing idea, and I wanted to try it out.
 
-## Privacy
+## Filter out the bots
+Why not just parse the server logs? What I like about this approach is that because it relies upon `:hover` it helps filter out bots, as I hope 
 
 
 ## Semi-static site 
-
-Creating a super basic analytics system is an option made possible by the fact that this website is semi-static (inspired by [Brad Gessler](https://fly.io/ruby-dispatch/semi-static-websites/)). It is a Rails application with [Sitepress embedded](https://sitepress.cc/getting-started/rails).
-
-This website is inspired by Brad Gessler's notion of a [semi-static site](https://fly.io/ruby-dispatch/semi-static-websites/). It is a Rails application with [Sitepress embedded](https://sitepress.cc/getting-started/rails) to handle static content. 
-One of the nice advantages of a semi-static website is that I can use Date object to determine whether my posts should be published or not. 
-
- 
+Creating a super basic analytics system is an option made possible by the fact that this website is semi-static (a notion I first came across via [Brad Gessler](https://fly.io/ruby-dispatch/semi-static-websites/)). It is a Rails application with [Sitepress embedded](https://sitepress.cc/getting-started/rails) to handle static content.
+One of the other nice advantages of a semi-static website is that I can use Date object to determine whether my posts should be published or not. 
 
 ## Set up the endpoint
+
 
 ## Override CSS variable to 
 
