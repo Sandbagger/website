@@ -31,13 +31,15 @@ module Sitepress
       end
     end
 
-    def writing_layout(page)
-      ApplicationLayout.new do |layout|
-        layout.partial do
-          PhlexMarkdownComponent.new(page).call.html_safe
-        end
-      end
-    end
+    # def writing_layout(page)
+    #   ApplicationLayout.new do |layout|
+    #     layout.partial do
+    #       PhlexMarkdownComponent.new(page).call.html_safe
+    #     end
+    #   end
+    # end
+
+
 
     private
 
@@ -51,6 +53,7 @@ module Sitepress
 
     def layout_component(resource)
       method_name = resource.data.fetch("layout", "page").concat("_layout")
+      pp method_name
       layout_method = method(method_name)
       layout_method.call resource
     end
