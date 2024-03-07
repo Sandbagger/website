@@ -7,7 +7,7 @@ class PhlexMarkdownComponent < Phlex::Markdown
   end
 
   def template
-    div(class: "flow") do
+    div(class: 'flow hit', style: "--path: url('/hit/handle?ref=#{@page.request_path}');") do
       super
     end
   end
@@ -15,4 +15,6 @@ class PhlexMarkdownComponent < Phlex::Markdown
   def ul
     super(class: "bullet")
   end
+
+
 end

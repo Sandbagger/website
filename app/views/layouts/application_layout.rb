@@ -29,11 +29,12 @@ class ApplicationLayout < ApplicationView
         )
         link(rel: "manifest", href: "/site.webmanifest")
         link(rel: "mask-icon", href: "/safari-pinned-tab.svg", color: "#61b9d2")
+        style { ".hit:hover { border-image: var(--path);  }" }
       end
 
       render NavComponent.new
 
-      body(class: "center", data_controller: "hit" ) do
+      body(class: "center" ) do
         main(class: "flow", &block)
       end
     end
