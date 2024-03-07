@@ -7,10 +7,6 @@ body {
   padding-bottom: 5em;
 }
 
-div.hit:hover {
-  border-image: var(--path);
-}
-
 h1,
 h2,
 h3 {
