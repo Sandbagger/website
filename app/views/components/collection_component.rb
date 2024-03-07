@@ -10,9 +10,9 @@ class CollectionComponent < ApplicationComponent
 
   def template
     h3 do
-      'Other writing'
+      "Other writing"
     end
-    
+
     ul do
       @collection.each do |resource|
         li do

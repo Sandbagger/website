@@ -2,12 +2,12 @@
 
 class FeedController < ApplicationController
   layout -> { ApplicationLayout }
-  Sitepress::SitePages
-  
+
   def index
-    respond to do format
-      format .xml { render locals: { posts:, renderer: } }
-      end
+    respond to do
+      format
+      format.xml { render locals: {posts:, renderer:} }
+    end
   end
 
   private
