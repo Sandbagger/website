@@ -5,6 +5,7 @@ export default class extends Controller {
   requestMade = false;
   connect() {
     console.log('Connected to the hit controller');
+    console.log('document.referrer:', document.referrer);
     this.element.addEventListener('mouseover', () => this.handleHover());
   }
 
