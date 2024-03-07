@@ -15,6 +15,7 @@ class ApplicationLayout < ApplicationView
         csp_meta_tag
         csrf_meta_tags
         stylesheet_link_tag "application", data_turbo_track: "reload"
+        javascript_include_tag "application", data_turbo_track: "reload", defer: true
         link(
           rel: "apple-touch-icon",
           sizes: "180x180",
@@ -28,12 +29,11 @@ class ApplicationLayout < ApplicationView
         )
         link(rel: "manifest", href: "/site.webmanifest")
         link(rel: "mask-icon", href: "/safari-pinned-tab.svg", color: "#61b9d2")
-        style { ".hit:hover { border-image: var(--path);  }" }
       end
 
       render NavComponent.new
 
-      body(class: "center") do
+      body(class: "center", data_controller: "hit" ) do
         main(class: "flow", &block)
       end
     end
