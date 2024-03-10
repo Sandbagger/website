@@ -7,7 +7,7 @@ status: publish
 
 # Capture Request Referrer via CSS
 
-It all started with this [toot](https://ruby.social/@copiousfreetime/112012241303103416), which took me to [Herman's blog post](https://herman.bearblog.dev/how-bear-does-analytics-with-css/) outlining a way to use CSS to filter out bot traffic and capture unique views in a day:
+It all started with this [toot](https://ruby.social/@copiousfreetime/112012241303103416), which took me to [Herman's blog post](https://herman.bearblog.dev/how-bear-does-analytics-with-css/) outlining a way to use CSS to filter out bot traffic and capture unique views:
 
 > In order to do this I use the IP address of the request to determine the country, then hash the IP address along with the date. All subsequent requests to the page are checked for matching IP address + date hashes and duplicates are discarded.
 
@@ -131,5 +131,6 @@ Referrer: https://github.com/Sandbagger
 ```
 
 ## Conclusion 
-So I didn't manage to capture the referrer via a css only approach. Is there something that I am missing? If you have any further suggestion to get the CSS only approach to work hit me up! 
+So I didn't manage to capture the referrer via a css only approach. Is there something that I am missing? I am all ears if you have any further ideas to get the CSS only approach to work - hit me up! 
+
 The JavaScript approach works, and it will allow me to move on to implementing myfonj's suggestion of using a private cache to attribute unique views.
