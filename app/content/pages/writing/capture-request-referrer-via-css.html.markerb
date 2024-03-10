@@ -133,4 +133,4 @@ Referrer: https://github.com/Sandbagger
 ## Conclusion 
 So I didn't manage to capture the referrer via a css only approach. Is there something that I am missing? I am all ears if you have any further ideas to get the CSS only approach to work - hit me up! 
 
-The JavaScript approach works, and it will allow me to move on to implementing myfonj's suggestion of using a private cache to attribute unique views.
+Using Javascript to handle the hover will allow me to move on to implementing myfonj's suggestion of using a private cache to attribute unique views.
