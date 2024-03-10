@@ -9,5 +9,5 @@ end
 # can execute arbitrary code on your server. This should only be used for input you
 # trust, like content files from your code repo.
 MarkdownRails.handle :markerb do
-  ErbMarkdown.new
+  ApplicationMarkdown.new
 end

@@ -2,20 +2,24 @@
 
 class FeedController < ApplicationController
   layout -> { ApplicationLayout }
-
   def index
-    respond to do
-      format
-      format.xml { render locals: {posts:, renderer:} }
+    respond_to do |format|
+      begin
+        format.html { head :no_content } # Add this line
+        format.xml { render locals: {posts:, renderer:}, layout: false}
+      rescue => e
+        Rails.logger.error "Failed to render XML: #{e.message}"
+        render xml: "<error>Internal Server Error</error>", status: :internal_server_error
+      end
     end
   end
 
   private
 
   def posts = Sitepress.site.resources.glob("writing/*").select do |resource|
-    next if resource.data["publish"].nil?
-    resource.data["publish"] <= Date.today
-  end.compact.sort_by { |resource| resource.data["publish"] }.reverse
+    next if resource.data["publish_at"].nil?
+    resource.data["publish_at"] <= Date.today
+  end.compact.sort_by { |resource| resource.data["publish_at"] }.reverse
 
-  def renderer = PhlexMarkdownComponent.new
+  def renderer = ApplicationMarkdown
 end
