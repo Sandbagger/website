@@ -7,7 +7,11 @@ status: publish
 
 # Capture Request Referrer via CSS
 
-It all started with this [toot](https://ruby.social/@copiousfreetime/112012241303103416), which took me to [Herman's blog](https://herman.bearblog.dev/how-bear-does-analytics-with-css/), and then I stumbled into [this comment](https://news.ycombinator.com/item?id=38106649) on Hacker News.
+It all started with this [toot](https://ruby.social/@copiousfreetime/112012241303103416), which took me to [Herman's blog post](https://herman.bearblog.dev/how-bear-does-analytics-with-css/) outlining a way to use CSS to filter out bot traffic and capture unique views in a day:
+
+> In order to do this I use the IP address of the request to determine the country, then hash the IP address along with the date. All subsequent requests to the page are checked for matching IP address + date hashes and duplicates are discarded.
+
+I then stumbled into [myfonj's comment](https://news.ycombinator.com/item?id=38106649) on Hacker News.
 
 > Have you considered serving actual small transparent image with (private) caching headers set to expire at midnight (and not storing IPs at all)?
 
@@ -18,7 +22,7 @@ I don't want to have to display a privacy banner on the website, and I don't wan
 
 In practice, capturing the referrer proves to be more difficult than I thought due to prevalence of [noreferrer / noopener](https://developer.mozilla.org/en-US/docs/Web/Security/Referer_header:_privacy_and_security_concerns) links (for good reasons - [phishing threats](https://www.jitbit.com/alexblog/256-targetblank---the-most-underestimated-vulnerability-ever/)).
 
-On first sight,[Plausible](https://plausible.io/) seemed to fit the bill, but it probably is not GDPR compliant and it is a bit too shady in some of its practices for my liking ([see here for more details](https://blog.paranoidpenguin.net/2020/07/plausible-analytics-review-browser-fingerprinting-and-cname-cloaking/)). 
+On first sight, [Plausible](https://plausible.io/) seemed to fit the bill, and whilst better than Google Analytics, despite claims to the contrary, I am not confident that it is GDPR compliant ([see here for more details](https://blog.paranoidpenguin.net/2020/07/plausible-analytics-review-browser-fingerprinting-and-cname-cloaking/)). 
 
 To steer clear of GDPR I don't want to mess with any IP logging in any capacity. This is why myfonj's suggestion on Hacker News appeals. 
 
@@ -35,12 +39,12 @@ To test the behavior of the referral I added a link to my website in my Github p
 In my current setup with Sitepress and Rails I couldn't access `@page` within the layout component to get the request path, and I don't think there is a way to pass arguments to layouts. Instead, I set up a css class to handle the hover and the get request for the image:
 
 ```
-div.hit:hover {
+.hit:hover {
   border-image: var(--path);
 }
 ```
 
-I used wrapped the markdown content in a div with the class:
+I wrapped the markdown content with a div with a reference to the class and used the style attribute to set the path:
 
 ```
 def template
@@ -127,5 +131,5 @@ Referrer: https://github.com/Sandbagger
 ```
 
 ## Conclusion 
-So I didn't manage to capture the referrer via a css only approach. Is there something that I am missing? If you have any further ideas hit me up! 
-The JavaScript approach works, and it will allow me to move on to implementing myfonj's suggestion of using a private cache to attribute unique views.  
+So I didn't manage to capture the referrer via a css only approach. Is there something that I am missing? If you have any further suggestion to get the CSS only approach to work hit me up! 
+The JavaScript approach works, and it will allow me to move on to implementing myfonj's suggestion of using a private cache to attribute unique views.
