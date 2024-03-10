@@ -1,0 +1,131 @@
+---
+title: Capture Request Referrer via CSS
+topic: ruby, analytics, css
+publish: 2024-03-10
+status: publish
+---
+
+# Capture Request Referrer via CSS
+
+It all started with this [toot](https://ruby.social/@copiousfreetime/112012241303103416), which took me to [Herman's blog](https://herman.bearblog.dev/how-bear-does-analytics-with-css/), and then I stumbled into [this comment](https://news.ycombinator.com/item?id=38106649) on Hacker News.
+
+> Have you considered serving actual small transparent image with (private) caching headers set to expire at midnight (and not storing IPs at all)?
+
+This first post will focus on validating whether the referrer can be captured via a css only approach. In a subsequent post, I will focus on using private caching headers as an alternative to IP logging to identify unique views.
+
+## On Privacy 
+I don't want to have to display a privacy banner on the website, and I don't want to be too creepy in tracking of visits, but just creepy enough to be able to sate my vanity and identify where a visit originates from. 
+
+In practice, capturing the referrer proves to be more difficult than I thought due to prevalence of [noreferrer / noopener](https://developer.mozilla.org/en-US/docs/Web/Security/Referer_header:_privacy_and_security_concerns) links (for good reasons - [phishing threats](https://www.jitbit.com/alexblog/256-targetblank---the-most-underestimated-vulnerability-ever/)).
+
+On first sight,[Plausible](https://plausible.io/) seemed to fit the bill, but it probably is not GDPR compliant and it is a bit too shady in some of its practices for my liking ([see here for more details](https://blog.paranoidpenguin.net/2020/07/plausible-analytics-review-browser-fingerprinting-and-cname-cloaking/)). 
+
+To steer clear of GDPR I don't want to mess with any IP logging in any capacity. This is why myfonj's suggestion on Hacker News appeals. 
+
+## Bots and spiders
+Server logging casts a wide net, and the logs intermingle human and bot traffic. This is where client-side sifting can come into play, to help isolate the visits that you care about.
+Where Herman's approach is interesting is that holds out the promise of better filtering of bots. Some crawlers use javascript... some don't. Even less will use a mouse hover, which promises 
+a better signal to noise ratio in the sifting through of visitors.  
+
+## Proof of concept
+
+To test the behavior of the referral I added a link to my website in my Github profile.
+
+### CSS only tracker 
+In my current setup with Sitepress and Rails I couldn't access `@page` within the layout component to get the request path, and I don't think there is a way to pass arguments to layouts. Instead, I set up a css class to handle the hover and the get request for the image:
+
+```
+div.hit:hover {
+  border-image: var(--path);
+}
+```
+
+I used wrapped the markdown content in a div with the class:
+
+```
+def template
+  div(class: ' hit', style: "--path: url('/hit/handle?ref=#{@page.request_path}');") do
+    super
+  end
+end
+```
+
+Using the request path allows me to attribute the particular hit to the specific post.
+
+### Hit controller
+
+For now, I am just logging the referrer to validate that the request via css works: 
+
+```
+class HitController < ApplicationController
+  layout -> { ApplicationLayout }
+
+  skip_before_action :verify_authenticity_token, only: [:handle]
+
+  def handle
+    Rails.logger.info "Referrer: #{request.referer}"
+
+    send_data pixel,
+      type: "image/gif",
+      disposition: "inline",
+      status: :ok
+  end
+end
+```
+
+Clicking on the link in my Github profile, unfortunately, the referrer came through as:
+
+```
+Referrer: https://williamneal.dev/assets/global/styles-30d9ccc1d7be4f6706142f63a1b8489dabcc3371.css 
+```
+
+I tried defining the class in the head of the layout component instead: 
+
+```
+style { ".hit:hover { border-image: var(--path);  }" }
+```
+
+This time the referrer came through as:
+
+```
+Referrer: https://williamneal.dev/
+```
+
+### Javascript to the rescue 
+Having no joy with the css only approach, I made a Stimulus controller to handle the hover:
+
+```
+export default class extends Controller {
+  referred = false;
+  
+  connect() {
+    this.element.addEventListener('mouseover', () => this.handleHover());
+  }
+
+  handleHover() {
+    if (this.referred) return;
+    const pageUrl = encodeURIComponent(window.location.href);
+    const requestUrl = `/hit/handle?ref=${pageUrl}`;
+
+    fetch(requestUrl, {
+      method: 'GET',
+    }).then(response => {
+      if (response.ok) {
+        this.referred = true;
+      } else {
+        console.error('Request failed');
+      }
+    });
+  }
+}
+```
+
+Huzzah! The referrer came through as:
+
+```
+Referrer: https://github.com/Sandbagger
+```
+
+## Conclusion 
+So I didn't manage to capture the referrer via a css only approach. Is there something that I am missing? If you have any further ideas hit me up! 
+The JavaScript approach works, and it will allow me to move on to implementing myfonj's suggestion of using a private cache to attribute unique views.  

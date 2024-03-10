@@ -34,7 +34,7 @@ class ApplicationLayout < ApplicationView
 
       render NavComponent.new
 
-      body(class: "center" ) do
+      body(class: "center", data_controller: "hit") do
         main(class: "flow", &block)
       end
     end
