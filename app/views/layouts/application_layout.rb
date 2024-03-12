@@ -29,6 +29,7 @@ class ApplicationLayout < ApplicationView
         )
         link(rel: "manifest", href: "/site.webmanifest")
         link(rel: "mask-icon", href: "/safari-pinned-tab.svg", color: "#61b9d2")
+        link(rel: "alternate", type: "application/rss+xml", title: "William Neal's RSS feed", href: "https://williamneal.dev/feed.xml")
         style { ".hit:hover { border-image: var(--path);  }" }
       end
 
