@@ -90,3 +90,5 @@ gem "redcarpet", "~> 3.6"
 gem "propshaft", "~> 0.8.0"
 
 gem "lograge"
+
+gem "mocktail", group: :test, require: "mocktail"
