@@ -8,14 +8,16 @@ class HitController < ApplicationController
   before_action :unique_id, only: [:handle]
 
   def handle
-    Hit.create(
+    Hit.create!(
       unique_user_id: cookies[:unique_id],
       user_agent: request.user_agent,
-      page: request.query_parameters[:ref],
-      referer: request.referer,
+      # TODO: get internal referer to work
+      # referer: request.query_parameters[:ref],
       metadata: request.query_parameters,
-      path: params[:ref]
+      # using the CSS only option for now
+      path: request.query_parameters[:path],
     )
+
     send_data pixel,
       type: "image/gif",
       disposition: "inline",
@@ -29,6 +31,7 @@ class HitController < ApplicationController
   end
 
   def set_cache_headers
+    pp 'set_cache_headers'
     # set private cache instead of IP address to handle repeated views
     page_key = params[:ref] || request.path
     seconds_until_midnight = (DateTime.now.end_of_day - DateTime.now).to_i
