@@ -11,9 +11,8 @@ class HitController < ApplicationController
     Hit.create(
       unique_user_id: cookies[:unique_id],
       user_agent: request.user_agent,
-      page: request.query_parameters[:page_id],
+      page: request.query_parameters[:ref],
       referer: request.referer,
-      session_id: request.session.id,
       metadata: request.query_parameters,
       path: params[:ref]
     )

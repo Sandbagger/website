@@ -15,15 +15,26 @@ class HitsControllerTest < ActionDispatch::IntegrationTest
     get hit_handle_url
 
     assert_response :success
-    assert_equal "117bc6a90d678355f46a", cookies[:unique_id], "The unique_id cookie should be set correctly"
+    assert_equal "117bc6a90d678355f46a", cookies[:unique_id]
   end
 
   # cache headers are set to ensure that the tracking pixel is cached for the day
   # so we assume that every request should be a new hit on a new day
-  test "should create a hit on" do
+  test "should create a hit with correct attributes" do
+    user_agent = "Mozilla/5.0"
+    referrer = "http://example.com"
+    page = "home"
     assert_difference("Hit.count", 1) do
-      get hit_handle_url, params: {page_id: "home"}, headers: {HTTP_REFERER: "http://example.com", HTTP_USER_AGENT: "Mozilla/5.0"}
+      get hit_handle_url, params: { ref: page }, headers: { HTTP_REFERER: referrer, HTTP_USER_AGENT: user_agent }
     end
+
+    hit = Hit.last
+    assert_equal "117bc6a90d678355f46a", hit.unique_user_id
+    assert_equal user_agent, hit.user_agent
+    assert_equal page, hit.page
+    assert_equal referrer, hit.referer
+    assert_equal 'home', hit.path
+
     assert_response :success
   end
 end
