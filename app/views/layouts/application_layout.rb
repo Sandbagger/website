@@ -12,6 +12,7 @@ class ApplicationLayout < ApplicationView
       head do
         title { "William Neal" }
         meta name: "viewport", content: "width=device-width,initial-scale=1"
+        meta name: "referrer", content: "strict-origin-when-cross-origin"
         csp_meta_tag
         csrf_meta_tags
         stylesheet_link_tag "application", data_turbo_track: "reload"
@@ -35,7 +36,9 @@ class ApplicationLayout < ApplicationView
 
       render NavComponent.new
 
-      body(class: "center", data_controller: "hit") do
+      # disabling data-controller="hit" for now as referrer is not working and the css only option  
+      # works the in the same way
+      body(class: "center") do
         main(class: "flow", &block)
       end
     end
