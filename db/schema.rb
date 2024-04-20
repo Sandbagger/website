@@ -14,7 +14,6 @@ ActiveRecord::Schema[7.1].define(version: 2024_04_20_083444) do
   create_table "hits", force: :cascade do |t|
     t.string "unique_user_id"
     t.string "user_agent"
-    t.string "page"
     t.string "referer"
     t.string "session_id"
     t.string "path"
