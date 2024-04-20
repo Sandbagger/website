@@ -171,6 +171,9 @@ GEM
     mime-types-data (3.2024.0305)
     mini_mime (1.1.5)
     minitest (5.22.2)
+    mocktail (2.0.0)
+      sorbet-eraser (~> 0.3.1)
+      sorbet-runtime (~> 0.5.9204)
     msgpack (1.7.2)
     mutex_m (0.2.0)
     net-imap (0.4.10)
@@ -291,6 +294,8 @@ GEM
       railties (>= 6.0)
       sitepress-core (= 4.0.2)
       sprockets-rails (>= 2.0.0)
+    sorbet-eraser (0.3.1)
+    sorbet-runtime (0.5.11352)
     sprockets (4.2.1)
       concurrent-ruby (~> 1.0)
       rack (>= 2.2.4, < 4)
@@ -355,6 +360,7 @@ DEPENDENCIES
   litestream (~> 0.3.1)
   lograge
   markdown-rails (~> 2.1)
+  mocktail
   phlex-markdown!
   phlex-rails (~> 1.1)
   propshaft (~> 0.8.0)
