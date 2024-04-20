@@ -56,7 +56,7 @@
 
 class ApplicationMarkdown < Phlex::Markdown
   def template
-    div(class: 'flow hit', style: "--path: url('/hit/handle?ref=#{@page.request_path}');") do
+    div(class: "flow") do
       super
     end
   end
