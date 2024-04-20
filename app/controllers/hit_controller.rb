@@ -8,6 +8,8 @@ class HitController < ApplicationController
   before_action :unique_id, only: [:handle]
 
   def handle
+    # this works for now, as all content is static which flows through the markdown component
+    # that hosts the pixel
     Hit.create!(
       unique_user_id: cookies[:unique_id],
       user_agent: request.user_agent,
