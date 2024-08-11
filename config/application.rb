@@ -1,7 +1,7 @@
 require_relative "boot"
 
 require "rails/all"
-
+require_relative '../app/middleware/set_referrer_policy'
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
@@ -11,6 +11,7 @@ module LiteRails
     config.autoload_paths << "#{root}/app/views"
     config.autoload_paths << "#{root}/app/views/layouts"
     config.autoload_paths << "#{root}/app/views/components"
+    config.autoload_paths << "#{root}/app/middleware"
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 7.1
 
@@ -18,6 +19,7 @@ module LiteRails
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
+    config.middleware.use SetReferrerPolicy
 
     # Configuration for the application, engines, and railties goes here.
     #
