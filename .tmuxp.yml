@@ -1,0 +1,10 @@
+session_name: rails
+windows:
+  - window_name: server
+    panes:
+      - sqlite3 storage/development.sqlite3
+      - bin/dev
+  - window_name: console
+    panes:
+      - rails console
+     
