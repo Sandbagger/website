@@ -1,0 +1,20 @@
+---
+title: Interesting Tailwind vs Semantic CSS Artical
+topic: css, tailwind
+publish_at: 
+status: publish
+# layout: writing
+---
+
+# Tailwind vs Semantic CSS
+An interesting article by Tero Piirainen that compares [two implementations side by side](https://nuejs.org/blog/tailwind-vs-semantic-css/) (via https://piccalil.li/blog/tailwind-vs.semantic-css/).
+
+His points regarding Tailwind I think also apply to other utility based frameworks such as Bootstrap.
+
+## Separating Concerns
+Tero points to the reigning popularity of CSS-in-JSS approach - but the rise of React Server Components may present an opening for making styling more decoupled from from mark up. For example, MUI can only be used in React client components and not React server components (note: React components are a flavour of React and should not be confused with more general concept of Server Side Rending (SSR)... see [here](https://github.com/reactwg/server-components/discussions/4) for more detail). Separating styling from markup means that the same styles can be applied to both React client and server components.    
+
+If you are a fullstack developer or frontent developer focusing on single page applications your primary focus is typically   
+Andy Bell makes the point that mastering CSS takes time  
+
+
