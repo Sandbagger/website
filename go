@@ -12,8 +12,16 @@ function usage()
   echo "    go init               (Re)name app"
 }
 
+function db(){
+  sqlite3 storage/development.sqlite3 
+}
+
+function sqlite_dev_path(){
+  echo "storage/development.sqlite3"
+}
+
 function up {
-  ./bin/dev
+  tmuxp load .
 }
 
 function spec {
@@ -101,6 +109,30 @@ function write {
   echo "File $filename created in app/content/pages/writing/ based on template"
 }
 
+function determine_db_type() {
+local env=${1:-development}  # Default to development environment if not specified
+  # Path to the database configuration file
+  local db_config="config/database.yml"
+
+  # Check if the file exists
+  if [ ! -f "$db_config" ]; then
+    echo "Database configuration file not found."
+    return 1
+  fi
+
+  # Search for database adapter type in the configuration
+  if grep -q "adapter: postgresql" "$db_config"; then
+    echo "postgresql"
+  elif grep -q "adapter: sqlite3" "$db_config"; then
+    echo "sqlite"
+  else
+    echo "Database type is not PostgreSQL or SQLite, or adapter is not specified clearly."
+  fi
+}
+
+# create a function that takes the output of determine_db_type and then runs sqlite3
+
+
 if [ "$1" == "up" ]; then
   up
 elif [ "$1" == "spec" ]; then
@@ -113,6 +145,8 @@ elif [ "$1" == "install" ]; then
   init "${2}" "${3}"
 elif [ "$1" == "write" ]; then
   write
+elif [ "$1" == "db_type" ]; then
+  determine_db_type
 else
   usage
 fi
