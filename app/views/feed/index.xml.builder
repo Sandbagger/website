@@ -1,5 +1,5 @@
 xml.instruct! :xml, version: "1.0"
-xml.rss version: "2.0", "xmlns:atom" => "http://www.w3.org/2005/Atom" do
+xml.rss :version => "2.0", "xmlns:atom" => "http://www.w3.org/2005/Atom" do
   xml.channel do
     xml.title "William Neal's Website - Ruby and Javascript Software Engineer"
     xml.description "RSS Feed for William Neal's Website"
