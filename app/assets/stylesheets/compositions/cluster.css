@@ -5,3 +5,11 @@
   justify-content: flex-start;
   align-items: center;
 }
+
+.cluster-around {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space, 1rem);
+  justify-content: space-between;
+  align-items: center;
+}

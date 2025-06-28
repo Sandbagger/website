@@ -3,5 +3,5 @@
 }
 
 .bullet > ::before {
-  content: var(--symbol, '🦄')'\0020';
+  content: var(--symbol, '🦄 ');
 }
