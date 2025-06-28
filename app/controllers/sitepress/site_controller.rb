@@ -5,6 +5,17 @@ module Sitepress
 
     protected
 
+    # default if no layout is specified in frontmatter
+     def default_layout(page)
+      Rails.logger.info "Page request: #{request.query_parameters.inspect}, User Agent: #{request.user_agent}, Referer: #{request.referer}"
+      # Rails does not let you pass stuff to layouts
+      ApplicationLayout.new do |layout|
+        layout.partial do
+          render_resource_inline page
+        end
+      end
+    end
+    
     def page_layout(page)
       Rails.logger.info "Page request: #{request.query_parameters.inspect}, User Agent: #{request.user_agent}, Referer: #{request.referer}"
       # Rails does not let you pass stuff to layouts
@@ -16,7 +27,6 @@ module Sitepress
         layout.partial do
           render CollectionComponent.new(
             site.resources.glob("writing/*").select do |resource|
-              pp resource.url
               next if resource.data["publish_at"].nil?
               next if resource == page
               resource.data["publish_at"] <= Date.today
@@ -51,7 +61,7 @@ module Sitepress
     end
 
     def layout_component(resource)
-      method_name = resource.data.fetch("layout", "page").concat("_layout")
+      method_name = resource.data.fetch("layout", "default").concat("_layout")
       layout_method = method(method_name)
       layout_method.call resource
     end
