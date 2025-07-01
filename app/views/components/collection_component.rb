@@ -9,15 +9,9 @@ class CollectionComponent < ApplicationComponent
   end
 
   def template
-    h3 do
-      "Other writing"
-    end
-
-    ul do
+    ul(class: 'bullet', role: 'list') do
       @collection.each do |resource|
-        li do
-          link_to_page(resource)
-        end
+        li(style: "--symbol: '🦄 ';") { link_to_page(resource)}
       end
     end
   end

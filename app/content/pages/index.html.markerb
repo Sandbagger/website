@@ -1,15 +1,16 @@
 ---
 title: Home
-
+layout: writing
 ---
 
-A home on the internet for my biovating
+A home on the internet for my bloviating
 
 <ul class='bullet' role="list">
   <li style="--symbol: '🦄 '">Tech</li>
   <li style="--symbol: '🏦 '">Macro</li>
   <li style="--symbol: '🏛 '">Politics</li>
 </ul>
+
 
 
 

@@ -32,4 +32,11 @@ module PageHelper
   def render_layout(layout, **, &)
     render(html: capture(&), layout: "layouts/#{layout}", **)
   end
+
+  # def writings
+  #   Sitepress.site.resources.glob("writing/*").select do |resource|
+  #     next if resource.data["publish_at"].nil?
+  #     resource.data["publish_at"] <= Date.today
+  #   end.compact.sort_by { |resource| resource.data["publish_at"] }.reverse
+  # end
 end
