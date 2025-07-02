@@ -37,8 +37,9 @@ module Sitepress
 
       method_name = resource.data.fetch("layout", "default").concat("_layout")
       Rails.logger.info method_name
-      layout_method = method(method_name)
       begin
+      layout_method = method(method_name)
+
         layout_method.call(resource)
       rescue NameError
         writing_layout(resource)
