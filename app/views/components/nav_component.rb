@@ -9,10 +9,13 @@ class NavComponent < ApplicationComponent
         h2{ "William Neal" }
 
         ul(class: 'cluster', role: "list") do
-      
-            li do
-              link_to_page(Sitepress.site.get("/"))
-            end
+          li do
+            link_to_page(Sitepress.site.get("/"))
+          end
+
+          li do
+            link_to_page(Sitepress.site.get("/about"))
+          end
 
           li do
             link_to "Toots", "https://ruby.social/@Sandbagger", target: "_blank", rel: "noopener noreferrer me"

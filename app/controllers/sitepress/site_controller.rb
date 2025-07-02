@@ -7,16 +7,17 @@ module Sitepress
 
     # default if no layout is specified in frontmatter
      def default_layout(page)
-      # Rails does not let you pass stuff to layouts
       ApplicationLayout.new do | l |
         l.markdown render_resource_inline(page)
-        l.partial CollectionComponent.new(published)
       end
     end
     
 
     def writing_layout(page)
-      default_layout(page)
+     ApplicationLayout.new do | l |
+        l.markdown render_resource_inline(page)
+        l.partial CollectionComponent.new(published)
+      end
     end
 
     private
