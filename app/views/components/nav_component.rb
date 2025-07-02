@@ -5,7 +5,7 @@ class NavComponent < ApplicationComponent
 
   def template
     nav do
-      ul(class: 'cluster-around') do
+      ul(class: 'cluster') do
         h2{ "William Neal" }
 
         ul(class: 'cluster', role: "list") do
