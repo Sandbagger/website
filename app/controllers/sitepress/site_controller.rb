@@ -32,11 +32,11 @@ module Sitepress
 
     # parses frontmatter for layout 
     def layout_component(resource)
-      Rails.logger.debug resource
-      Rails.logger.debug resource.data
+      Rails.logger.info resource
+      Rails.logger.info resource.data
 
       method_name = resource.data.fetch("layout", "default").concat("_layout")
-      Rails.logger.debug method_name
+      Rails.logger.info method_name
       layout_method = method(method_name)
       begin
         layout_method.call(resource)
