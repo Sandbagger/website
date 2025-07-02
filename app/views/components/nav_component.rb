@@ -9,11 +9,10 @@ class NavComponent < ApplicationComponent
         h2{ "William Neal" }
 
         ul(class: 'cluster', role: "list") do
-          Sitepress.site.resources.glob("*.html.*").each do |resource|
+      
             li do
-              link_to_page(resource)
+              link_to_page(Sitepress.site.get("/"))
             end
-          end
 
           li do
             link_to "Toots", "https://ruby.social/@Sandbagger", target: "_blank", rel: "noopener noreferrer me"
