@@ -51,11 +51,14 @@ Rails.application.configure do
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
   config.force_ssl = true
 
-  # Log to STDOUT by default
-  config.logger = ActiveSupport::Logger.new($stdout)
-    .tap { |logger| logger.formatter = ::Logger::Formatter.new }
-    .then { |logger| ActiveSupport::TaggedLogging.new(logger) }
-
+  # Log into production.log under log/, so we can tail it
+    file_logger = ActiveSupport::Logger.new(
+      Rails.root.join("log/production.log"),  # path
+      1,                                      # keep 1 rotated file
+      50.megabytes                            # rotate after 50 MB
+    )
+    file_logger.formatter = ::Logger::Formatter.new
+    config.logger = ActiveSupport::TaggedLogging.new(file_logger)
   # Prepend all log lines with the following tags.
   config.log_tags = [:request_id]
 
