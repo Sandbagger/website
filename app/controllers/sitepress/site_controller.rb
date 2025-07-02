@@ -40,7 +40,7 @@ module Sitepress
       layout_method = method(method_name)
       begin
         layout_method.call(resource)
-      rescue NoMethodError
+      rescue NameError
         writing_layout(resource)
       end
     end
