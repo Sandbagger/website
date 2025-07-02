@@ -13,11 +13,9 @@ class CollectionComponent < ApplicationComponent
       "Latest"
     }
 
-    ul(class: 'bullet', role: 'list') do
+    ul(class: 'bullet flow', role: 'list') do
       @collection.each do |resource|
         emoji = resource.data.fetch("emoji", '🦄 ')
-        pp resource.data
-        pp emoji
         li(style: "--symbol: '#{emoji} ';") { link_to_page(resource)}
       end
     end
