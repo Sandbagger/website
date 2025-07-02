@@ -4,6 +4,11 @@ class ApplicationLayout < ApplicationView
   include Phlex::Rails::Layout
   include Phlex::Rails::Helpers::ContentFor
   include PageHelper
+  include Phlex::DeferredRender
+
+  def initialize
+    @partials = []
+  end
 
   def template(&block)
     doctype
@@ -39,12 +44,21 @@ class ApplicationLayout < ApplicationView
       # disabling data-controller="hit" for now as referrer is not working and the css only option  
       # works the in the same way
       body(class: "center") do
-        main(class: "flow", &block)
+        main(class: "flow") do
+          unsafe_raw @markdown if @markdown
+          @partials.each do |partial|
+            render partial
+          end
+        end
       end
     end
   end
+  def markdown md
+    @markdown = md
+  end
 
-  def partial(&)
-    section(class: "flow", &)
+  def partial component
+    @partials ||= []
+    @partials << component
   end
 end

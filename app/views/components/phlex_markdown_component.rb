@@ -3,11 +3,14 @@
 class PhlexMarkdownComponent < Phlex::Markdown
   def initialize(page)
     @page = page
-    super(page.body)
+    super(page)
   end
 
   def template
-    div(class: "flow hit", style: "--path: url('/hit/handle?path=#{@page.request_path}');") do
+    # div(class: "flow hit", style: "--path: url('/hit/handle?path=#{@page.request_path}');") do
+    #   super
+    # end
+      div(class: "flow hit") do
       super
     end
   end

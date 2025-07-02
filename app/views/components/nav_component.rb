@@ -6,7 +6,7 @@ class NavComponent < ApplicationComponent
   def template
     nav do
       ul(class: 'cluster-around') do
-        h3{ "William Neal" }
+        h2{ "William Neal" }
 
         ul(class: 'cluster', role: "list") do
           Sitepress.site.resources.glob("*.html.*").each do |resource|

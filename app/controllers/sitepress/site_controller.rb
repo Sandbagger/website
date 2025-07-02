@@ -7,47 +7,16 @@ module Sitepress
 
     # default if no layout is specified in frontmatter
      def default_layout(page)
-      Rails.logger.info "Page request: #{request.query_parameters.inspect}, User Agent: #{request.user_agent}, Referer: #{request.referer}"
       # Rails does not let you pass stuff to layouts
-      ApplicationLayout.new do |layout|
-        layout.partial do
-          render_resource_inline page
-        end
+      ApplicationLayout.new do | l |
+        l.markdown render_resource_inline(page)
+        l.partial CollectionComponent.new(published)
       end
     end
     
-    def page_layout(page)
-      Rails.logger.info "Page request: #{request.query_parameters.inspect}, User Agent: #{request.user_agent}, Referer: #{request.referer}"
-      # Rails does not let you pass stuff to layouts
-      ApplicationLayout.new do |layout|
-        layout.partial do
-          PhlexMarkdownComponent.new(page).call.html_safe
-        end
-
-        layout.partial do
-          render CollectionComponent.new(
-            site.resources.glob("writing/*").select do |resource|
-              next if resource.data["publish_at"].nil?
-              next if resource == page
-              resource.data["publish_at"] <= Date.today
-            end.compact.sort_by { |resource| resource.data["publish_at"] }.reverse
-          )
-        end
-      end
-    end
-
-    def application_layout(page)
-      ApplicationLayout.new do
-        PhlexMarkdownComponent.new(page).call.html_safe
-      end
-    end
 
     def writing_layout(page)
-      ApplicationLayout.new do |layout|
-        layout.partial do
-          PhlexMarkdownComponent.new(page).call.html_safe
-        end
-      end
+      default_layout(page)
     end
 
     private
@@ -60,10 +29,19 @@ module Sitepress
       render inline: resource.body, type: resource.handler
     end
 
+    # parses frontmatter for layout 
     def layout_component(resource)
       method_name = resource.data.fetch("layout", "default").concat("_layout")
       layout_method = method(method_name)
       layout_method.call resource
+    end
+
+    def published(exclude: nil)
+      Sitepress.site.resources.glob("writing/*").select do |res|
+        next if res.request_path == request.path # Exclude current page
+        next if res.data["publish_at"].nil?
+        res.data["publish_at"] <= Date.today
+      end.sort_by { |res| res.data["publish_at"] }.reverse
     end
   end
 end
