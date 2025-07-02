@@ -38,7 +38,11 @@ module Sitepress
       method_name = resource.data.fetch("layout", "default").concat("_layout")
       Rails.logger.debug method_name
       layout_method = method(method_name)
-      layout_method.call resource
+      begin
+        layout_method.call(resource)
+      rescue NoMethodError
+        writing_layout(resource)
+      end
     end
 
     def published(exclude: nil)
