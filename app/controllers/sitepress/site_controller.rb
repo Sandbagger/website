@@ -32,7 +32,11 @@ module Sitepress
 
     # parses frontmatter for layout 
     def layout_component(resource)
+      pp resource
+      pp resource.data
+      
       method_name = resource.data.fetch("layout", "default").concat("_layout")
+      
       layout_method = method(method_name)
       layout_method.call resource
     end
