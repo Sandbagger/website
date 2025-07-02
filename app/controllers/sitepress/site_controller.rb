@@ -35,15 +35,10 @@ module Sitepress
       Rails.logger.info resource
       Rails.logger.info resource.data
 
-      method_name = resource.data.fetch("layout", "default").concat("_layout")
+      method_name = resource.data.fetch("layout", "default") + "_layout"
       Rails.logger.info method_name
-      begin
       layout_method = method(method_name)
-
-        layout_method.call(resource)
-      rescue NameError
-        writing_layout(resource)
-      end
+      layout_method.call(resource)
     end
 
     def published(exclude: nil)
