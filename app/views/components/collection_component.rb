@@ -10,7 +10,7 @@ class CollectionComponent < ApplicationComponent
 
   def template
     h3(class: 'cluster'){
-      "Latest"
+      "Latest ✍️"
     }
 
     ul(class: 'bullet flow', role: 'list') do
