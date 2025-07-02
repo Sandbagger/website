@@ -109,7 +109,6 @@ GEM
     debug (1.9.1)
       irb (~> 1.10)
       reline (>= 0.3.8)
-    dotenv (3.1.2)
     drb (2.2.1)
     erb (4.0.4)
       cgi (>= 0.3.3)
@@ -355,7 +354,6 @@ DEPENDENCIES
   bootsnap
   capybara
   debug
-  dotenv
   jbuilder
   jsbundling-rails
   litestack (~> 0.4.2)
