@@ -1,0 +1,47 @@
+---
+title: Markdown in Rails with Phlex and Sitepress
+topic: ruby-on-rails, sitepress, phlex
+publish_at: 2024-02-27
+status: publish
+emoji: 🦄
+---
+
+# Markdown in Rails with Phlex and Sitepress
+Responding to [Lucian's](https://ruby.social/@lucian/111998966496640844) call to marketing week for Ruby projects, here is a quick write
+up on how to use markdown in Rails with Phlex and Sitepress.
+
+## Why?
+
+I've been  wanting to roll my own blog for a while, and I was halfway through combining High Voltage and Frontmatter when I came across
+Sitepress which has basically done that for me. 
+
+I am a big fan of what Brad Gessler is doing in the ruby space. In particular, in his appearance on this [podcast](https://www.youtube.com/watch?v=qvCymKMzuhk),
+he makes the point about the different phases of a project lifecycle, and the importance of making the gap between inspiration
+striking and deploying a landing page as a first step to realizing the vision as short as possible. 
+
+As a secondary goal I have been wanting to take Phlex for a ride so I want to kill two birds with one stone.
+
+## How I did it
+Two Sitepress gems:
+
+- sitepress-rails
+- markdown-rails
+
+Installation is straightforward following [these instructions](https://sitepress.cc/getting-started/rails). The sharp edge came when trying to integrate 
+Phlex (particularly using Phlex layouts) with Sitepress. Brad comment in response to issue [here](https://github.com/sitepress/sitepress/issues/48#issuecomment-1797114086) provided a way forward. 
+
+Installing Phlex was also straightforward. Without much much thought I decided to use Phlex-markdown.
+I am not sure of the pros and cons of this as opposed to just using markdown renderer that is bundled with Sitepress.
+There is an issue with the current (as of February 2024) version of phlex-markdown but there is a [fix](https://github.com/phlex-ruby/phlex-markdown/issues/6) already in a main branch which I reference in the gemfile. 
+
+Working with Phlex layout component with Sitepress involves ejecting a Sitepress controller.
+In this controller, I call a generic phlex-markdown component to render the markdown.
+
+I am not sure whether this is the best way to do this, but it works! 
+
+One thing I would like to do is support the use of erb inside of the markdown, but this is a work in progress.
+
+## Conclusion
+I am fairly content with the result and it has formed the basis of this very website.
+
+For illustrative purposes, I have made a minimal repo. It is available [here](https://github.com/Sandbagger/phlex-markdown-sitepress).
