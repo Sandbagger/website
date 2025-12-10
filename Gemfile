@@ -4,22 +4,22 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 ruby "3.2.2"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem "rails", "~> 7.1.3"
+gem "rails", "~> 8.0.0"
 
 # Use sqlite3 as the database for Active Record
-gem "sqlite3", "~> 1.4"
+gem "sqlite3", "~> 2.1"
 
 # Use the Puma web server [https://github.com/puma/puma]
-gem "puma", "~> 6.0"
+gem "puma", "~> 6.4"
 
 # Bundle and transpile JavaScript [https://github.com/rails/jsbundling-rails]
-gem "jsbundling-rails"
+gem "jsbundling-rails", "~> 1.3"
 
 # Hotwire's SPA-like page accelerator [https://turbo.hotwired.dev]
-gem "turbo-rails"
+gem "turbo-rails", "~> 2.0"
 
 # Hotwire's modest JavaScript framework [https://stimulus.hotwired.dev]
-gem "stimulus-rails"
+gem "stimulus-rails", "~> 1.3"
 
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
@@ -87,7 +87,7 @@ gem "phlex-markdown", git: "https://github.com/phlex-ruby/phlex-markdown"
 
 gem "redcarpet", "~> 3.6"
 
-gem "propshaft", "~> 0.8.0"
+gem "propshaft", "~> 0.9.0"
 
 gem "lograge"
 

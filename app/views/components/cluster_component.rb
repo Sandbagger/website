@@ -1,9 +1,7 @@
 # frozen_string_literal: true
 
 class ClusterComponent < ApplicationComponent
-  def template
-    ul(class: "cluster", role: "list") do
-      yield
-    end
+  def view_template(&block)
+    ul(class: 'cluster', role: 'list', &block)
   end
 end

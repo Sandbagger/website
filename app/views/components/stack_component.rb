@@ -1,9 +1,7 @@
 # frozen_string_literal: true
 
 class StackComponent < ApplicationComponent
-  def template(&)
-    div(class: "stack") do
-      yield
-    end
+  def view_template(&)
+    div(class: 'stack', &)
   end
 end

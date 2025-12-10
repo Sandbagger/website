@@ -8,15 +8,15 @@ class CollectionComponent < ApplicationComponent
     @collection = collection || []
   end
 
-  def template
-    h3(class: 'cluster'){
-      "Latest ✍️"
-    }
+  def view_template
+    h3(class: 'cluster') do
+      'Latest ✍️'
+    end
 
     ul(class: 'bullet flow', role: 'list') do
       @collection.each do |resource|
-        emoji = resource.data.fetch("emoji", '🦄 ')
-        li(style: "--symbol: '#{emoji} ';") { link_to_page(resource)}
+        emoji = resource.data.fetch('emoji', '🦄 ')
+        li(style: "--symbol: '#{emoji} ';") { link_to_page(resource) }
       end
     end
   end

@@ -5,10 +5,8 @@ class BoxComponent < ApplicationComponent
     @invert = invert
   end
 
-  def template(&)
-    div(class: tokens("box", invert?: "invert")) do
-      yield
-    end
+  def view_template(&)
+    div(class: tokens('box', invert?: 'invert'), &)
   end
 
   private
