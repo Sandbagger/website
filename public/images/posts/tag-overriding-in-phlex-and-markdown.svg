@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Tag Overriding with Phlex in Markdown">
+  <defs>
+  <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+    <stop offset="0%" stop-color="hsl(180, 70%, 60%)" stop-opacity="0.9"/>
+    <stop offset="100%" stop-color="hsl(221, 70%, 60%)" stop-opacity="0.9"/>
+  </linearGradient>
+</defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="174.2" cy="391.7" r="165" fill="hsl(221, 70%, 60%)" opacity="0.09"/>
+<circle cx="939.3" cy="275.0" r="75" fill="hsl(180, 70%, 60%)" opacity="0.15"/>
+<circle cx="966.7" cy="312.9" r="146" fill="hsl(180, 70%, 60%)" opacity="0.14"/>
+<circle cx="806.0" cy="412.0" r="179" fill="hsl(221, 70%, 60%)" opacity="0.13"/>
+<circle cx="988.8" cy="333.0" r="88" fill="hsl(221, 70%, 60%)" opacity="0.15"/>
+<circle cx="823.0" cy="131.6" r="130" fill="hsl(235, 70%, 60%)" opacity="0.15"/>
+  <text x="600" y="239" text-anchor="middle" font-family="Space Mono, monospace" font-weight="800" font-size="72" fill="#0b1021" stroke="#f8fafc" stroke-width="3" paint-order="stroke fill" opacity="1" letter-spacing="0.5">Tag Overriding</text>
+<text x="600" y="315" text-anchor="middle" font-family="Space Mono, monospace" font-weight="800" font-size="72" fill="#0b1021" stroke="#f8fafc" stroke-width="3" paint-order="stroke fill" opacity="1" letter-spacing="0.5">with Phlex in</text>
+<text x="600" y="391" text-anchor="middle" font-family="Space Mono, monospace" font-weight="800" font-size="72" fill="#0b1021" stroke="#f8fafc" stroke-width="3" paint-order="stroke fill" opacity="1" letter-spacing="0.5">Markdown</text>
+</svg>

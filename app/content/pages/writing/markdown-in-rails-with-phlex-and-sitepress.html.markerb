@@ -6,7 +6,6 @@ status: publish
 emoji: 🦄
 ---
 
-# Markdown in Rails with Phlex and Sitepress
 Responding to [Lucian's](https://ruby.social/@lucian/111998966496640844) call to marketing week for Ruby projects, here is a quick write
 up on how to use markdown in Rails with Phlex and Sitepress.
 

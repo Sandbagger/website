@@ -1,95 +1,92 @@
 body {
-  background: var(--color-light);
-  color: var(--color-dark);
-  font-family:  "Space Mono", monospace;
-  font-size: var(--size-step-0);
-  line-height: 1.7;
-  padding-bottom: 5em;
+    background: var(--color-light);
+    color: var(--color-dark);
+    font-family: "Space Mono", monospace;
+    font-size: var(--size-step-0);
+    line-height: 1.7;
+    padding-bottom: 5em;
 }
 
 h1,
 h2,
 h3 {
-  font-family:  "Space Mono", monospace, Inter, sans-serif;
-  font-weight: 800;
-  line-height: 1.1;
+    font-family: "Space Mono", monospace, Inter, sans-serif;
+    font-weight: 800;
+    line-height: 1.1;
 }
 
 h1 {
-  font-size: var(--size-step-4);
+    font-size: var(--size-step-5);
 }
 
 h2 {
-  font-size: var(--size-step-3);
+    font-size: var(--size-step-3);
 }
 
 h3 {
-  font-size: var(--size-step-2);
+    font-size: var(--size-step-2);
 }
 
 ul,
 ol {
-  padding-inline-start: 1em;
+    padding-inline-start: 1em;
 }
 
 a {
-  color: currentColor;
-  text-decoration-color: var(--color-primary);
-  text-decoration-thickness: 0.3ex;
-  text-underline-offset: 0.3ex;
-  text-decoration-style: dashed
+    color: currentColor;
+    text-decoration-color: var(--color-primary);
+    text-decoration-thickness: 0.3ex;
+    text-underline-offset: 0.3ex;
+    text-decoration-style: dashed;
 }
 
-a[data-state="decoration-none"]{
-  text-decoration: none;
+a[data-state="decoration-none"] {
+    text-decoration: none;
 }
 
 p {
-max-width: 60ch;
+    max-width: 60ch;
 }
 
 blockquote {
-  padding-inline-start: 1em;
-  border-inline-start: 0.3em solid;
-  font-style: italic;
-  font-size: var(--size-step-1);
-} 
+    padding-inline-start: 1em;
+    border-inline-start: 0.3em solid;
+    font-style: italic;
+    font-size: var(--size-step-1);
+}
 
 :is(h1, h2, h3, blockquote, pre) {
-  --flow-space: 1.5em;
+    --flow-space: 1.5em;
 }
 
 :is(h1, h2, h3) + * {
-  --flow-space: 0.5em;
+    --flow-space: 0.5em;
 }
 
 article > * {
-  align-items: start;
+    align-items: start;
 }
 
 pre {
-  background-color: var(--color-light);
-  border-left: 3px solid var(--color-primary);
-  color: var(--color-dark);
-  page-break-inside: avoid;
-  font-family: monospace;
-  font-size: 15px;
-  line-height: 1.6;
-  margin-bottom: 1.6em;
-  max-width: 100%;
-  overflow: auto;
-  padding: 1em 1.5em;
-  display: block;
-  word-wrap: break-word;
-  box-shadow: 0 0 1rem rgba(0,0,0,.08)
+    background-color: var(--color-light);
+    border-left: 3px solid var(--color-primary);
+    color: var(--color-dark);
+    page-break-inside: avoid;
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 1.6em;
+    max-width: 100%;
+    overflow: auto;
+    padding: 1em 1.5em;
+    display: block;
+    word-wrap: break-word;
+    box-shadow: 0 0 1rem rgba(0, 0, 0, 0.08);
 }
 
 code {
-  background-color: var(--color-light);
-  border-radius: 3px;
-  font-family: monospace;
-  padding: 0 5px;
+    background-color: var(--color-light);
+    border-radius: 3px;
+    font-family: monospace;
+    padding: 0 5px;
 }
-
-
-

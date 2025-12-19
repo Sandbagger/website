@@ -7,6 +7,7 @@ class ApplicationLayout < ApplicationView
 
   def initialize
     @partials = []
+    @cover_image = nil
   end
 
   def view_template
@@ -35,7 +36,12 @@ class ApplicationLayout < ApplicationView
         link(rel: 'manifest', href: '/site.webmanifest')
         link(rel: 'mask-icon', href: '/safari-pinned-tab.svg', color: '#61b9d2')
         link(rel: 'alternate', type: 'application/rss+xml', title: "William Neal's RSS feed", href: 'https://williamneal.dev/feed')
-        style { '.hit:hover { border-image: var(--path);  }' }
+        style do
+          <<~CSS
+            .hit:hover { border-image: var(--path); }
+            .cover { width: 100%; height: auto; border-radius: 12px; margin-bottom: 1.5rem; display: block; }
+          CSS
+        end
       end
 
       render NavComponent.new
@@ -44,6 +50,9 @@ class ApplicationLayout < ApplicationView
       # works the in the same way
       body(class: 'center') do
         main(class: 'flow') do
+          if @cover_image
+            img(src: @cover_image[:src], alt: @cover_image[:alt], class: "cover")
+          end
           raw @markdown if @markdown
           @partials.each do |partial|
             render partial
@@ -55,6 +64,10 @@ class ApplicationLayout < ApplicationView
 
   def markdown(md)
     @markdown = md
+  end
+
+  def cover_image(src, alt: nil)
+    @cover_image = {src:, alt:}
   end
 
   def partial(component)

@@ -6,8 +6,6 @@ status: publish
 emoji: 🦄
 ---
 
-# Capture Request Referrer via CSS
-
 It all started with this [toot](https://ruby.social/@copiousfreetime/112012241303103416), which took me to [Herman's blog post](https://herman.bearblog.dev/how-bear-does-analytics-with-css/) outlining a way to use CSS to filter out bot traffic and capture unique views:
 
 > In order to do this I use the IP address of the request to determine the country, then hash the IP address along with the date. All subsequent requests to the page are checked for matching IP address + date hashes and duplicates are discarded.

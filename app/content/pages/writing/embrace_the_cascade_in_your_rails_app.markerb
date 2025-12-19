@@ -6,14 +6,12 @@ status: draft
 emoji: 🦄
 ---
 
-# Embrace the cascade in your Rails app
-
 Sprockets stitches together css files in a non determinate order. This is an issue when we want to work with the cascade to arrange css files by ascending specificity. Read on to find out how you can instruct your css manifest file to embrace the cascade and how declaring cascade layers can help communicate your intention.
 
 ## A bit of history
 HTTP1/1.1 was created in 1997, requests are processed sequentially, where each request has the ability to block subsequent requests. Because of this developers tried to limit the number of requests, which had a knock on effect of meaning bigger files. Working with a big file is no fun, from Rails 4x onwards Sprockets enabled developers to chunk CSS (and Javascript) files and then used a build step to concatenate these chunks of css into one file.
 
-In specific views  
+In specific views
 
 
 ### Deafult CSS pipline

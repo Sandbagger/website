@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Tag Overriding with Phlex in Markdown">
+  <defs>
+  <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+    <stop offset="0%" stop-color="hsl(91, 70%, 60%)"/>
+    <stop offset="100%" stop-color="hsl(21, 70%, 60%)"/>
+  </linearGradient>
+</defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="231.4" cy="146.5" r="93" fill="hsl(91, 70%, 60%)" opacity="0.5"/>
+<circle cx="200.3" cy="165.2" r="161" fill="hsl(91, 70%, 60%)" opacity="0.61"/>
+<circle cx="424.0" cy="441.1" r="65" fill="hsl(91, 70%, 60%)" opacity="0.5"/>
+<circle cx="529.3" cy="273.6" r="102" fill="hsl(21, 70%, 60%)" opacity="0.37"/>
+<circle cx="759.9" cy="393.0" r="146" fill="hsl(21, 70%, 60%)" opacity="0.72"/>
+<circle cx="217.9" cy="334.2" r="144" fill="hsl(174, 70%, 60%)" opacity="0.55"/>
+  <text x="600" y="315" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="64" fill="#0f172a" opacity="0.9">
+    Tag Overriding with Phlex in Markdown
+  </text>
+</svg>

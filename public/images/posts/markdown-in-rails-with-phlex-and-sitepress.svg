@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Markdown in Rails with Phlex and Sitepress">
+  <defs>
+  <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+    <stop offset="0%" stop-color="hsl(61, 70%, 60%)" stop-opacity="0.9"/>
+    <stop offset="100%" stop-color="hsl(220, 70%, 60%)" stop-opacity="0.9"/>
+  </linearGradient>
+</defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="237.0" cy="230.5" r="103" fill="hsl(220, 70%, 60%)" opacity="0.14"/>
+<circle cx="737.7" cy="503.2" r="123" fill="hsl(220, 70%, 60%)" opacity="0.09"/>
+<circle cx="822.0" cy="380.8" r="177" fill="hsl(61, 70%, 60%)" opacity="0.13"/>
+<circle cx="911.4" cy="394.0" r="73" fill="hsl(61, 70%, 60%)" opacity="0.13"/>
+<circle cx="359.8" cy="406.0" r="97" fill="hsl(168, 70%, 60%)" opacity="0.16"/>
+<circle cx="767.4" cy="273.4" r="80" fill="hsl(220, 70%, 60%)" opacity="0.17"/>
+  <text x="600" y="239" text-anchor="middle" font-family="Space Mono, monospace" font-weight="800" font-size="72" fill="#0b1021" stroke="#f8fafc" stroke-width="3" paint-order="stroke fill" opacity="1" letter-spacing="0.5">Markdown in Rails</text>
+<text x="600" y="315" text-anchor="middle" font-family="Space Mono, monospace" font-weight="800" font-size="72" fill="#0b1021" stroke="#f8fafc" stroke-width="3" paint-order="stroke fill" opacity="1" letter-spacing="0.5">with Phlex and</text>
+<text x="600" y="391" text-anchor="middle" font-family="Space Mono, monospace" font-weight="800" font-size="72" fill="#0b1021" stroke="#f8fafc" stroke-width="3" paint-order="stroke fill" opacity="1" letter-spacing="0.5">Sitepress</text>
+</svg>

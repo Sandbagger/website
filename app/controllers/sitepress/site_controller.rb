@@ -8,12 +8,14 @@ module Sitepress
     # default if no layout is specified in frontmatter
     def default_layout(page)
       ApplicationLayout.new.tap do |layout|
+        attach_cover(layout, page)
         layout.markdown(render_resource_inline(page))
       end
     end
 
     def writing_layout(page)
       ApplicationLayout.new.tap do |layout|
+        attach_cover(layout, page)
         layout.markdown(render_resource_inline(page))
         layout.partial(CollectionComponent.new(published))
       end
@@ -27,6 +29,24 @@ module Sitepress
 
     def render_resource_inline(resource)
       render_to_string inline: resource.body, type: resource.handler
+    end
+
+    def cover_slug_for(page)
+      path = page.try(:logical_path) || page.request_path
+      pn = Pathname(path)
+      # Strip multiple extensions like .html.markerb
+      while (ext = pn.extname) && !ext.empty?
+        pn = pn.sub_ext("")
+      end
+      pn.basename.to_s
+    end
+
+    def attach_cover(layout, page)
+      slug = cover_slug_for(page)
+      cover = Rails.root.join("public/images/posts/#{slug}.svg")
+      return unless File.exist?(cover)
+
+      layout.cover_image("/images/posts/#{slug}.svg", alt: page.data["title"])
     end
 
     # parses frontmatter for layout
