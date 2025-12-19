@@ -1,10 +1,10 @@
 GIT
   remote: https://github.com/phlex-ruby/phlex-markdown
-  revision: ee1e2763fc842563577003a269982cfc4ac79006
+  revision: c881efaec313c87295396b1e9c6932dda6941128
   specs:
     phlex-markdown (0.3.0)
       markly (~> 0.7)
-      phlex (>= 0.5)
+      phlex (>= 1.10)
 
 GEM
   remote: https://rubygems.org/
@@ -85,7 +85,7 @@ GEM
     ast (2.4.2)
     base64 (0.3.0)
     benchmark (0.5.0)
-    bigdecimal (3.3.1)
+    bigdecimal (4.0.1)
     bindex (0.8.1)
     bootsnap (1.18.3)
       msgpack (~> 1.2)
@@ -99,8 +99,7 @@ GEM
       rack-test (>= 0.6.3)
       regexp_parser (>= 1.5, < 3.0)
       xpath (~> 3.2)
-    cgi (0.4.1)
-    concurrent-ruby (1.3.5)
+    concurrent-ruby (1.3.6)
     connection_pool (3.0.2)
     crass (1.0.6)
     csv (3.3.5)
@@ -109,8 +108,7 @@ GEM
       irb (~> 1.10)
       reline (>= 0.3.8)
     drb (2.2.3)
-    erb (4.0.4)
-      cgi (>= 0.3.3)
+    erb (6.0.1)
     erubi (1.13.1)
     globalid (1.3.0)
       activesupport (>= 6.1)
@@ -122,8 +120,8 @@ GEM
     hansi (0.2.1)
     i18n (1.14.7)
       concurrent-ruby (~> 1.0)
-    io-console (0.8.1)
-    irb (1.15.3)
+    io-console (0.8.2)
+    irb (1.16.0)
       pp (>= 0.6.0)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
@@ -151,7 +149,7 @@ GEM
       activesupport (>= 4)
       railties (>= 4)
       request_store (~> 1.0)
-    loofah (2.24.1)
+    loofah (2.25.0)
       crass (~> 1.0.2)
       nokogiri (>= 1.12.0)
     mail (2.9.0)
@@ -166,13 +164,13 @@ GEM
       activesupport (>= 6.0.0)
       railties (>= 6.0.0)
       redcarpet (>= 3.0.0)
-    markly (0.10.0)
+    markly (0.15.1)
     matrix (0.4.2)
     mime-types (3.5.2)
       mime-types-data (~> 3.2015)
     mime-types-data (3.2024.0305)
     mini_mime (1.1.5)
-    minitest (5.26.2)
+    minitest (5.27.0)
     mocktail (2.0.0)
       sorbet-eraser (~> 0.3.1)
       sorbet-runtime (~> 0.5.9204)
@@ -206,10 +204,12 @@ GEM
     parser (3.3.0.5)
       ast (~> 2.4.1)
       racc
-    phlex (1.11.0)
-    phlex-rails (1.2.2)
-      phlex (>= 1.10, < 2)
-      railties (>= 6.1, < 9)
+    phlex (2.3.1)
+      zeitwerk (~> 2.7)
+    phlex-rails (2.3.1)
+      phlex (~> 2.3.0)
+      railties (>= 7.1, < 9)
+      zeitwerk (~> 2.7)
     pp (0.6.3)
       prettyprint
     prettyprint (0.2.0)
@@ -218,7 +218,7 @@ GEM
       activesupport (>= 7.0.0)
       rack
       railties (>= 7.0.0)
-    psych (5.3.0)
+    psych (5.3.1)
       date
       stringio
     public_suffix (5.0.4)
@@ -265,7 +265,7 @@ GEM
       zeitwerk (~> 2.6)
     rainbow (3.1.1)
     rake (13.3.1)
-    rdoc (6.17.0)
+    rdoc (7.0.1)
       erb
       psych (>= 4.0.0)
       tsort
@@ -335,7 +335,7 @@ GEM
       rubocop-performance (~> 1.20.2)
     stimulus-rails (1.3.4)
       railties (>= 6.0.0)
-    stringio (3.1.9)
+    stringio (3.2.0)
     thor (1.4.0)
     tilt (2.6.1)
     timeout (0.5.0)
@@ -360,7 +360,7 @@ GEM
     websocket-extensions (0.1.5)
     xpath (3.2.0)
       nokogiri (~> 1.8)
-    zeitwerk (2.7.3)
+    zeitwerk (2.7.4)
 
 PLATFORMS
   arm64-darwin-24
@@ -377,9 +377,10 @@ DEPENDENCIES
   litestream (~> 0.3.1)
   lograge
   markdown-rails (~> 2.1)
+  minitest (~> 5.22)
   mocktail
   phlex-markdown!
-  phlex-rails (~> 1.1)
+  phlex-rails (~> 2.0)
   propshaft (~> 0.9.0)
   puma (~> 6.4)
   rails (~> 8.0.0)
@@ -395,7 +396,7 @@ DEPENDENCIES
   web-console
 
 RUBY VERSION
-   ruby 3.2.2p53
+   ruby 3.3.5p100
 
 BUNDLED WITH
    2.4.18
