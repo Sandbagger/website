@@ -44,7 +44,7 @@ class ApplicationLayout < ApplicationView
       # works the in the same way
       body(class: 'center') do
         main(class: 'flow') do
-          unsafe_raw @markdown if @markdown
+          raw @markdown if @markdown
           @partials.each do |partial|
             render partial
           end

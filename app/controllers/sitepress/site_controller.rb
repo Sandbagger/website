@@ -6,17 +6,16 @@ module Sitepress
     protected
 
     # default if no layout is specified in frontmatter
-     def default_layout(page)
-      ApplicationLayout.new do | l |
-        l.markdown render_resource_inline(page)
+    def default_layout(page)
+      ApplicationLayout.new.tap do |layout|
+        layout.markdown(render_resource_inline(page))
       end
     end
-    
 
     def writing_layout(page)
-     ApplicationLayout.new do | l |
-        l.markdown render_resource_inline(page)
-        l.partial CollectionComponent.new(published)
+      ApplicationLayout.new.tap do |layout|
+        layout.markdown(render_resource_inline(page))
+        layout.partial(CollectionComponent.new(published))
       end
     end
 
@@ -27,10 +26,10 @@ module Sitepress
     end
 
     def render_resource_inline(resource)
-      render inline: resource.body, type: resource.handler
+      render_to_string inline: resource.body, type: resource.handler
     end
 
-    # parses frontmatter for layout 
+    # parses frontmatter for layout
     def layout_component(resource)
       Rails.logger.info resource
       Rails.logger.info resource.data
