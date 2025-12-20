@@ -16,15 +16,25 @@ h3 {
 }
 
 h1 {
-    font-size: var(--size-step-5);
+    font-size: var(--size-step-2);
 }
 
 h2 {
-    font-size: var(--size-step-3);
+    font-size: var(--size-step-2);
 }
 
 h3 {
+    font-size: var(--size-step-1);
+}
+
+:is(.h1, h1) {
     font-size: var(--size-step-2);
+    font-weight: 800;
+}
+
+:is(.h3, h3) {
+    font-size: var(--size-step-1);
+    font-weight: 700;
 }
 
 ul,
@@ -42,6 +52,18 @@ a {
 
 a[data-state="decoration-none"] {
     text-decoration: none;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 p {

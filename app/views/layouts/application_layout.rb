@@ -8,6 +8,7 @@ class ApplicationLayout < ApplicationView
   def initialize
     @partials = []
     @cover_image = nil
+    @page_title = nil
   end
 
   def view_template
@@ -52,7 +53,11 @@ class ApplicationLayout < ApplicationView
         main(class: 'flow') do
           if @cover_image
             img(src: @cover_image[:src], alt: @cover_image[:alt], class: "cover")
+            h1(class: "sr-only") { @page_title } if @page_title
+          elsif @page_title
+            h1 { @page_title }
           end
+
           raw @markdown if @markdown
           @partials.each do |partial|
             render partial
@@ -68,6 +73,10 @@ class ApplicationLayout < ApplicationView
 
   def cover_image(src, alt: nil)
     @cover_image = {src:, alt:}
+  end
+
+  def page_title(title)
+    @page_title = title
   end
 
   def partial(component)

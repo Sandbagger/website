@@ -6,7 +6,7 @@ class NavComponent < ApplicationComponent
   def view_template
     nav do
       ul(class: 'cluster') do
-        h2 { 'William Neal' }
+        h3 { 'William Neal' }
 
         ul(class: 'cluster', role: 'list') do
           li do

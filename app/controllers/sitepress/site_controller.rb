@@ -7,15 +7,19 @@ module Sitepress
 
     # default if no layout is specified in frontmatter
     def default_layout(page)
+      title = page.data["title"].presence || page.try(:title).presence || page.request_path.titleize
       ApplicationLayout.new.tap do |layout|
         attach_cover(layout, page)
+        layout.page_title(title)
         layout.markdown(render_resource_inline(page))
       end
     end
 
     def writing_layout(page)
+      title = page.data["title"].presence || page.try(:title).presence || page.request_path.titleize
       ApplicationLayout.new.tap do |layout|
         attach_cover(layout, page)
+        layout.page_title(title)
         layout.markdown(render_resource_inline(page))
         layout.partial(CollectionComponent.new(published))
       end
