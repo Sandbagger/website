@@ -12,6 +12,7 @@ module Sitepress
         attach_cover(layout, page)
         layout.page_title(title)
         layout.markdown(render_resource_inline(page))
+        layout.partial(CollectionComponent.new(published)) if writing_post?(page)
       end
     end
 
@@ -62,6 +63,10 @@ module Sitepress
       Rails.logger.info method_name
       layout_method = method(method_name)
       layout_method.call(resource)
+    end
+
+    def writing_post?(page)
+      page.request_path.to_s.match?(%r{\A/?writing/})
     end
 
     def published(exclude: nil)
