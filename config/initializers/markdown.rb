@@ -55,25 +55,9 @@ end
 
 
 # Setup markdown stacks to work with different template handler in Rails.
-MarkdownRails.handle :md, :markdown do
+# `.markerb` is retained as a file extension for historical reasons but is
+# rendered as plain markdown. ERB preprocessing was removed because it
+# executes arbitrary Ruby against page source and no post uses it.
+MarkdownRails.handle :md, :markdown, :markerb do
   ApplicationMarkdown.new
-end
-
-# Don't use Erb for untrusted markdown content created by users; otherwise they
-# can execute arbitrary code on your server. This should only be used for input you
-# trust, like content files from your code repo.
-class ErbMarkdown < ApplicationMarkdown
-  # Enables Erb to render for the entire doc before the markdown is rendered.
-  # This works great, except when you have an `erb` code fence.
-  def preprocess(html)
-    # Read more about this render call at https://guides.rubyonrails.org/layouts_and_rendering.html
-    render inline: html, handler: :erb
-  end
-end
-
-# Don't use Erb for untrusted markdown content created by users; otherwise they
-# can execute arbitrary code on your server. This should only be used for input you
-# trust, like content files from your code repo.
-MarkdownRails.handle :markerb do
-  ErbMarkdown.new
 end

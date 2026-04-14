@@ -33,7 +33,6 @@ class HitController < ApplicationController
   end
 
   def set_cache_headers
-    pp 'set_cache_headers'
     # set private cache instead of IP address to handle repeated views
     page_key = params[:ref] || request.path
     seconds_until_midnight = (DateTime.now.end_of_day - DateTime.now).to_i
