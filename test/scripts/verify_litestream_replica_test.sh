@@ -21,6 +21,7 @@ if [[ "${BUNDLE_MODE:-success}" == "fail" ]]; then
 fi
 
 if [[ "${BUNDLE_MODE:-success}" == "hang" ]]; then
+  printf '%s\n' "$*" > "$BUNDLE_HANG_ARGS_LOG"
   while :; do
     :
   done
@@ -105,10 +106,12 @@ set -e
 [[ $(grep -Fxc 'error=litestream_replica_verification_timeout' "$hook_failed_stderr") -eq 1 ]]
 
 hung_stderr="$temp_dir/hung.stderr"
+hung_args="$temp_dir/hung-args.log"
 hung_path="$temp_dir:$PATH"
 set +e
 PATH="$hung_path" \
 BUNDLE_LOG="$temp_dir/hung.log" \
+BUNDLE_HANG_ARGS_LOG="$hung_args" \
 BUNDLE_MODE=hang \
 KAMAL_DESTINATION=staging \
 LITESTREAM_REPLICA_VERIFY_TIMEOUT=1 \
@@ -129,6 +132,11 @@ ruby -r timeout -e '
 hung_status=$?
 set -e
 
+if [[ ! -f "$hung_args" ]]; then
+  echo "hanging bundle stub did not record its arguments" >&2
+  exit 1
+fi
+grep -F 'exec kamal -d staging app exec -r web --reuse ' "$hung_args"
 if [[ $hung_status -eq 124 ]]; then
   echo "verifier did not enforce its per-attempt timeout" >&2
   exit 1
