@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z ${LITESTREAM_READY_MARKER+x} ]]; then
+  export LITESTREAM_READY_MARKER=/rails/storage/.web-ready
+fi
+
+if [[ -z ${LITESTREAM_READY_TIMEOUT+x} ]]; then
+  export LITESTREAM_READY_TIMEOUT=60
+fi
+
+if [[ ! $LITESTREAM_READY_TIMEOUT =~ ^[1-9][0-9]*$ ]]; then
+  echo "error=invalid_litestream_readiness_timeout" >&2
+  exit 1
+fi
+
+elapsed=0
+while [[ ! -e $LITESTREAM_READY_MARKER ]]; do
+  if (( elapsed >= LITESTREAM_READY_TIMEOUT )); then
+    echo "error=litestream_readiness_timeout" >&2
+    exit 1
+  fi
+
+  sleep 1
+  ((elapsed += 1))
+done
+
+exec ./bin/rails litestream:replicate

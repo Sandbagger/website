@@ -12,7 +12,9 @@ servers:
   litestream:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
-    cmd: ./bin/rails litestream:replicate
+    # Kamal's primary-role healthcheck barrier starts web before this role.
+    # The wrapper also waits for SQLite preparation and WAL verification.
+    cmd: ./bin/litestream-entrypoint
 
 proxy:
   ssl: true
@@ -40,6 +42,8 @@ env:
     RAILS_SERVE_STATIC_FILES: "true"
     RAILS_LOG_TO_STDOUT: "true"
     LITESTREAM_DATABASE_PATH: /rails/storage/db/production.sqlite3
+    LITESTREAM_READY_MARKER: /rails/storage/.web-ready
+    LITESTREAM_READY_TIMEOUT: "60"
   secret:
     - RAILS_MASTER_KEY
     - LITESTREAM_REPLICA_URL
