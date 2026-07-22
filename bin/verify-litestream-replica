@@ -26,14 +26,41 @@ rm -f -- "$restore_path"
 REMOTE
 )
 
+run_kamal_attempt() {
+  local attempt_timeout=$1
+  shift
+
+  KAMAL_EXEC_PATH=$PATH ruby -r timeout -e '
+    timeout_seconds = Integer(ARGV.shift)
+    environment = ENV.to_h
+    environment["PATH"] = environment.fetch("KAMAL_EXEC_PATH")
+    child = Process.spawn(environment, *ARGV, pgroup: true)
+
+    begin
+      Timeout.timeout(timeout_seconds) { Process.wait(child) }
+    rescue Timeout::Error
+      Process.kill("KILL", -child) rescue nil
+      Process.wait(child) rescue nil
+      exit 124
+    end
+
+    exit($?.success? ? 0 : 1)
+  ' "$attempt_timeout" "$@"
+}
+
 deadline=$((SECONDS + timeout))
 max_attempts=$((timeout + 1))
 attempts=0
 
 while (( attempts < max_attempts && (SECONDS < deadline || attempts == 0) )); do
   attempts=$((attempts + 1))
+  attempt_timeout=$((deadline - SECONDS))
 
-  if bundle exec kamal "${destination_args[@]}" app exec -r web --reuse "bash -lc $(printf '%q' "$remote_command")" >/dev/null 2>&1; then
+  if (( attempt_timeout < 1 )); then
+    break
+  fi
+
+  if run_kamal_attempt "$attempt_timeout" bundle exec kamal "${destination_args[@]}" app exec -r web --reuse "bash -lc $(printf '%q' "$remote_command")" >/dev/null 2>&1; then
     exit 0
   fi
 
