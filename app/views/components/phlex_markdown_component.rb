@@ -7,10 +7,7 @@ class PhlexMarkdownComponent < Phlex::Markdown
   end
 
   def view_template
-    # div(class: "flow hit", style: "--path: url('/hit/handle?path=#{@page.request_path}');") do
-    #   super
-    # end
-    div(class: 'flow hit') do
+    div(class: "flow") do
       super
     end
   end

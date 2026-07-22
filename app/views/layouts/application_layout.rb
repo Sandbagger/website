@@ -37,18 +37,11 @@ class ApplicationLayout < ApplicationView
         link(rel: 'manifest', href: '/site.webmanifest')
         link(rel: 'mask-icon', href: '/safari-pinned-tab.svg', color: '#61b9d2')
         link(rel: 'alternate', type: 'application/rss+xml', title: "William Neal's RSS feed", href: 'https://williamneal.dev/feed')
-        style do
-          <<~CSS
-            .hit:hover { border-image: var(--path); }
-            .cover { width: 100%; height: auto; border-radius: 12px; margin-bottom: 1.5rem; display: block; }
-          CSS
-        end
+        style { ".cover { width: 100%; height: auto; border-radius: 12px; margin-bottom: 1.5rem; display: block; }" }
       end
 
       render NavComponent.new
 
-      # disabling data-controller="hit" for now as referrer is not working and the css only option
-      # works the in the same way
       body(class: 'center') do
         main(class: 'flow') do
           if @cover_image

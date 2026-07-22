@@ -10,16 +10,5 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_04_20_083444) do
-  create_table "hits", force: :cascade do |t|
-    t.string "unique_user_id"
-    t.string "user_agent"
-    t.string "referer"
-    t.string "session_id"
-    t.string "path"
-    t.json "metadata"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-  end
-
+ActiveRecord::Schema[8.0].define(version: 2026_07_22_120000) do
 end
