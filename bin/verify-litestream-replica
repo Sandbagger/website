@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+timeout=${LITESTREAM_REPLICA_VERIFY_TIMEOUT:-120}
+if [[ ! $timeout =~ ^[1-9][0-9]*$ ]]; then
+  echo "error=invalid_litestream_replica_verify_timeout" >&2
+  exit 2
+fi
+
+destination_args=()
+case "${KAMAL_DESTINATION:-}" in
+  "" | production) ;;
+  *) destination_args=(-d "$KAMAL_DESTINATION") ;;
+esac
+
+remote_command=$(cat <<'REMOTE'
+set -euo pipefail
+
+restore_path=/tmp/litestream-verify.sqlite3
+rm -f -- "$restore_path"
+trap 'rm -f -- "$restore_path"' EXIT
+
+litestream restore -config config/litestream.yml -o /tmp/litestream-verify.sqlite3 /rails/storage/db/production.sqlite3
+ruby -r sqlite3 -e 'database = SQLite3::Database.new(ARGV.fetch(0)); integrity_check = database.get_first_value("PRAGMA integrity_check"); abort "integrity_check=#{integrity_check.inspect}" unless integrity_check == "ok"' "$restore_path"
+rm -f -- "$restore_path"
+REMOTE
+)
+
+deadline=$((SECONDS + timeout))
+max_attempts=$((timeout + 1))
+attempts=0
+
+while (( attempts < max_attempts && (SECONDS < deadline || attempts == 0) )); do
+  attempts=$((attempts + 1))
+
+  if bundle exec kamal "${destination_args[@]}" app exec -r web --reuse "bash -lc $(printf '%q' "$remote_command")" >/dev/null 2>&1; then
+    exit 0
+  fi
+
+  if (( SECONDS >= deadline || attempts >= max_attempts )); then
+    break
+  fi
+
+  sleep 1
+done
+
+echo "error=litestream_replica_verification_timeout" >&2
+exit 1
