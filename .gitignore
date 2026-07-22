@@ -82,3 +82,6 @@ yarn-debug.log*
 # Ignore default Litestack SQLite databases.
 /db/**/*.sqlite3
 /db/**/*.sqlite3-*
+
+# Isolated Git worktrees used for parallel development.
+/.worktrees/
