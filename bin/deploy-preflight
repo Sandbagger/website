@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Verify the durable-host contract immediately before a Kamal action.
+set -euo pipefail
+
+if [[ -z "${KAMAL_HOST:-}" ]]; then
+  echo "error=missing_kamal_host" >&2
+  exit 1
+fi
+
+if [[ -z "${APP_SHARED_ROOT:-}" ]]; then
+  echo "error=missing_app_shared_root" >&2
+  exit 1
+fi
+
+if [[ ! "$APP_SHARED_ROOT" =~ ^/srv/apps/[^/]+/shared$ ]]; then
+  echo "error=invalid_app_shared_root" >&2
+  exit 1
+fi
+
+ssh_stderr=$(mktemp)
+trap 'rm -f "$ssh_stderr"' EXIT
+
+if ssh "root@$KAMAL_HOST" bash -s -- "$APP_SHARED_ROOT" 2>"$ssh_stderr" <<'REMOTE'
+set -euo pipefail
+
+fail() {
+  echo "error=$1" >&2
+  exit 1
+}
+
+app_shared_root="$1"
+
+test -f /srv/bootstrap/.layout-ready || fail bootstrap_layout_not_ready
+
+srv_source=$(findmnt -n -o SOURCE --target /srv) || fail srv_mount_source_unavailable
+root_source=$(findmnt -n -o SOURCE --target /) || fail root_mount_source_unavailable
+[[ "$srv_source" != "$root_source" ]] || fail srv_not_separate_filesystem
+
+test -L "$app_shared_root" && fail app_shared_root_symlink
+
+[[ $(stat -c '%u:%g' -- /srv/apps) == '0:0' ]] || fail apps_owner_invalid
+
+if test -e "$app_shared_root"; then
+  test -d "$app_shared_root" || fail app_shared_root_invalid
+  [[ $(stat -c '%u:%g' -- "$app_shared_root") == '1000:1000' ]] || fail app_shared_root_owner_invalid
+  test -d "$app_shared_root/db" || fail app_shared_db_missing
+  [[ $(stat -c '%u:%g' -- "$app_shared_root/db") == '1000:1000' ]] || fail app_shared_db_owner_invalid
+fi
+
+listeners=$(ss -H -ltnp) || fail ingress_listener_inspection_failed
+ingress_listeners=$(printf '%s\n' "$listeners" | awk '$4 ~ /:80$|:443$/ || $4 ~ /\]:80$|\]:443$/')
+
+if [[ -n "$ingress_listeners" ]] && printf '%s\n' "$ingress_listeners" | grep -qv 'docker-proxy'; then
+  fail foreign_ingress_listener
+fi
+
+containers=$(docker ps --format '{{.Names}}\t{{.Ports}}') || fail ingress_container_inspection_failed
+ingress_containers=$(printf '%s\n' "$containers" | awk -F '\t' '$2 ~ /:80->|:443->/')
+
+[[ -n "$ingress_listeners" && -z "$ingress_containers" ]] && fail foreign_ingress_listener
+
+if [[ -n "$ingress_containers" ]]; then
+  [[ $(printf '%s\n' "$ingress_containers" | wc -l | tr -d ' ') == '1' ]] || fail foreign_ingress_container
+  container_name=$(printf '%s\n' "$ingress_containers" | cut -f1)
+  container_ports=$(printf '%s\n' "$ingress_containers" | cut -f2-)
+  [[ "$container_name" == 'kamal-proxy' ]] || fail foreign_ingress_container
+  [[ "$container_ports" == *':80->'* && "$container_ports" == *':443->'* ]] || fail kamal_proxy_ports_invalid
+fi
+REMOTE
+then
+  :
+else
+  grep -E '^error=[a-z0-9_]+$' "$ssh_stderr" >&2 || true
+  echo 'error=preflight_ssh_failed' >&2
+  exit 1
+fi
