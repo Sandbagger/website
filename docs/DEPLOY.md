@@ -50,6 +50,25 @@ bin/deploy logs -r web              # tail web logs
 bin/deploy logs -r litestream       # tail litestream logs
 ```
 
+## Staging
+
+Staging is a separate Kamal destination at `staging.williamneal.dev`. It uses
+the separate service `website-staging` and must never share production's
+mounted directory or Litestream replica path.
+
+```bash
+dotfiles-hetzner-tf handoff website-staging --format env > .env.deploy.staging
+# Fill in the staging secrets, including a distinct LITESTREAM_REPLICA_URL.
+bin/deploy staging setup
+bin/deploy staging
+bin/deploy staging logs -r web
+```
+
+Its database lives at
+`/srv/apps/website-staging/shared/db/production.sqlite3` on the host. Create
+the DNS record for `staging.williamneal.dev` before `setup` so Kamal can obtain
+the TLS certificate.
+
 ## Refreshing the scaffold
 
 `.deploy-scaffold.json` records the `hetzner-basic` template name + dotfiles

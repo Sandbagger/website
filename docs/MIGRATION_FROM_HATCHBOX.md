@@ -121,6 +121,8 @@ Overlap window, no big-bang cutover:
 
 ## Known follow-ups
 
+- **Create the staging DNS record** — point `staging.williamneal.dev` at the
+  shared Kamal host before running `bin/deploy staging setup`.
 - **Validate the Docker build locally** before first `kamal setup` — requires
   Docker Desktop running. Catches SQLite compile / asset precompile failures
   without a round-trip to the registry.

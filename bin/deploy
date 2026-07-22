@@ -1,15 +1,28 @@
 #!/usr/bin/env bash
 # bin/deploy — Kamal wrapper for apps deployed onto the shared Hetzner host.
 # Loads .env.deploy, asserts the shared-host contract vars are set, then delegates.
-# Usage:  bin/deploy [kamal-subcommand ...]   (default: deploy)
+# Usage:  bin/deploy [staging] [kamal-subcommand ...]   (default: deploy)
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")/.." && pwd)
-ENV_FILE=$HERE/.env.deploy
+destination=""
+
+if [[ "${1:-}" == "staging" ]]; then
+  destination="staging"
+  shift
+fi
+
+if [[ -n "$destination" ]]; then
+  default_env_file="$HERE/.env.deploy.$destination"
+else
+  default_env_file="$HERE/.env.deploy"
+fi
+
+ENV_FILE="${DEPLOY_ENV_FILE:-$default_env_file}"
 
 if [[ ! -f $ENV_FILE ]]; then
   echo "error=missing_env_file path=$ENV_FILE" >&2
-  echo "hint=dotfiles-hetzner-tf handoff website --format env > .env.deploy" >&2
+  echo "hint=dotfiles-hetzner-tf handoff website --format env > $default_env_file" >&2
   exit 1
 fi
 
@@ -27,7 +40,7 @@ for var in "${required[@]}"; do
 done
 if (( ${#missing[@]} > 0 )); then
   echo "error=missing_vars vars=${missing[*]}" >&2
-  echo "hint=regenerate .env.deploy with dotfiles-hetzner-tf handoff website --format env" >&2
+  echo "hint=regenerate $default_env_file with dotfiles-hetzner-tf handoff website --format env" >&2
   exit 2
 fi
 
@@ -37,4 +50,12 @@ if ! bundle exec kamal version >/dev/null 2>&1; then
   exit 3
 fi
 
-exec bundle exec kamal "${@:-deploy}"
+if (( $# == 0 )); then
+  set -- deploy
+fi
+
+if [[ -n "$destination" ]]; then
+  exec bundle exec kamal -d "$destination" "$@"
+else
+  exec bundle exec kamal "$@"
+fi

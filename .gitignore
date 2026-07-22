@@ -29,6 +29,8 @@ config/master.key
 .env
 .env*.local
 .env.deploy
+.env.deploy.*
+!.env.deploy.staging.example
 
 ## Environment normalization:
 /.bundle

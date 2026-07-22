@@ -1,0 +1,4 @@
+service: website-staging
+
+proxy:
+  host: staging.williamneal.dev
