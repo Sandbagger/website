@@ -156,6 +156,7 @@ GEM
       rack
       sqlite3
       tilt
+    litestream (0.3.3)
     litestream (0.3.3-arm64-darwin)
     litestream (0.3.3-x86_64-darwin)
     litestream (0.3.3-x86_64-linux)
@@ -211,6 +212,8 @@ GEM
       net-protocol
     net-ssh (7.3.2)
     nio4r (2.7.5)
+    nokogiri (1.18.10-aarch64-linux-gnu)
+      racc (~> 1.4)
     nokogiri (1.18.10-arm64-darwin)
       racc (~> 1.4)
     nokogiri (1.18.10-x86_64-darwin)
@@ -339,6 +342,7 @@ GEM
       actionpack (>= 5.2)
       activesupport (>= 5.2)
       sprockets (>= 3.0.0)
+    sqlite3 (2.8.1-aarch64-linux-gnu)
     sqlite3 (2.8.1-arm64-darwin)
     sqlite3 (2.8.1-x86_64-darwin)
     sqlite3 (2.8.1-x86_64-linux-gnu)
@@ -391,6 +395,7 @@ GEM
     zeitwerk (2.7.4)
 
 PLATFORMS
+  aarch64-linux
   arm64-darwin-24
   x86_64-darwin-22
   x86_64-linux
