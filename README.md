@@ -13,6 +13,7 @@ bundle config set build .sqlite3 "--with-sqlite-cflags='-DSQLITE_DQS=0 -DSQLITE_
 
 ## Design system (work in progess)
 
-- embrace the cascade - the order of require statements in the application.css is important.
+- embrace the cascade — the order of require statements in the application.css is important.
+- minimal, opinionated Rails-like framework
 - no preprocessor
 - inspired by https://cube.fyi/ and https://every-layout.dev/.

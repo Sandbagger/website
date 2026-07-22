@@ -93,3 +93,5 @@ gem "propshaft", "~> 0.9.0"
 gem "lograge"
 
 gem "mocktail", group: :test, require: "mocktail"
+
+gem "kamal", "~> 2.0", group: :development, require: false

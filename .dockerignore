@@ -1,0 +1,45 @@
+# Version control
+.git
+.gitattributes
+.github
+
+# Deploy scaffolding (only bin/deploy + config/deploy.yml travel into the image)
+.kamal
+.env
+.env.*
+!.env.deploy.example
+.deploy-scaffold.json
+
+# Dev servers + editor state
+.tmuxp.yml
+.yarn
+.vscode
+.idea
+
+# Build artefacts (regenerated in the image)
+node_modules
+app/assets/builds/*
+!app/assets/builds/.keep
+public/assets
+public/packs
+
+# Runtime state (never ship dev DB or logs)
+storage/*
+!storage/.keep
+log/*
+!log/.keep
+tmp/*
+!tmp/.keep
+
+# Tests (not needed at runtime)
+test
+coverage
+
+# Docs — deploy image doesn't need them
+docs
+README.md
+LICENSE
+
+# Procfile.dev is foreman-local; Procfile is kept because Litestream role
+# uses bin/rails litestream:replicate directly, not Procfile.
+Procfile.dev

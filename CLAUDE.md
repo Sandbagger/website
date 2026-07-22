@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Stack
 
-Rails 8 + SQLite (via Litestack/Litestream) + Phlex views + Sitepress for static content + Markdown-Rails + Propshaft + jsbundling (esbuild) + Hotwire. Ruby 3.3.5. Deployed via Kamal.
+Rails 8 + SQLite (via Litestack/Litestream) + Phlex views + Sitepress for static content + Markdown-Rails + Propshaft + jsbundling (esbuild) + Hotwire. Ruby 3.3.5. Deployed via Kamal v2 (container image on GHCR → shared Hetzner host); see `docs/DEPLOY.md`.
 
 ## Commands
 
@@ -15,12 +15,13 @@ Rails 8 + SQLite (via Litestack/Litestream) + Phlex views + Sitepress for static
 - `bundle exec standardrb` — lint (uses the `standard` gem).
 - `./go write` — scaffold a new `app/content/pages/writing/<slug>.makerb` from the template and fill in the title.
 - `bin/rails images:generate_posts[true]` — regenerate deterministic SVG cover images in `public/images/posts/` (pass `true` to overwrite).
+- `bin/deploy` — production deploy via Kamal (loads `.env.deploy`, delegates to `bundle exec kamal`). See `docs/DEPLOY.md`.
 
 ## Architecture
 
 ### Content pipeline (Sitepress + Markdown-Rails + Phlex)
 
-Pages are not controllers. Routes end in `sitepress_pages` + `sitepress_root` (`config/routes.rb`), so anything under `app/content/pages/` is served at the corresponding URL. Only `feed` and `hit/handle` are conventional Rails routes.
+Pages are not controllers. Routes end in `sitepress_pages` + `sitepress_root` (`config/routes.rb`), so anything under `app/content/pages/` is served at the corresponding URL. The RSS feed is the only conventional Rails route.
 
 - **`.markerb` files** render as plain markdown (via Redcarpet/`ApplicationMarkdown`). The extension is retained for historical reasons; there is no ERB preprocessing step — it was removed because it executes arbitrary Ruby and no post used it. If you ever need embedded Ruby in a post, prefer a Phlex partial over reintroducing ERB in markdown.
 - **Front matter** on pages drives `PageModel` (`app/content/models/page_model.rb`) which exposes `title` and a `**/*.html*` collection. `status: index` / `layout: writing` etc. route pages through alternate layouts.
@@ -37,7 +38,11 @@ No preprocessor. `app/assets/stylesheets/application.css` imports in a load-bear
 
 ### SQLite configuration
 
-SQLite is compiled with aggressive pragmas (see README.md). Uses Litestack for queue/cache/cable and Litestream for replication (`config/litestream.yml`, `Procfile` runs `litestream:replicate` alongside the Rails server).
+SQLite is compiled with aggressive pragmas (see README.md). The Dockerfile re-applies these flags via `bundle config set --local build.sqlite3 ...` before `bundle install` — if you change the flags, update both the README and the Dockerfile. Uses Litestack for queue/cache/cable and Litestream for replication (`config/litestream.yml`, runs as its own Kamal role).
+
+### Deployment
+
+`config/deploy.yml` runs two roles on one image: `web` (Rails) and `litestream` (replication). Both mount `/srv/apps/website/shared` → `/rails/storage`, so SQLite + Active Storage + Litestream all share the same durable path. Secrets (`RAILS_MASTER_KEY`, `KAMAL_REGISTRY_PASSWORD`, `LITESTREAM_*`) come from `.env.deploy` at deploy time, sourced from 1Password.
 
 ## Conventions
 

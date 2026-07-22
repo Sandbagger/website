@@ -1,0 +1,11 @@
+{
+  "template": "hetzner-basic",
+  "dotfiles_commit": "a39ace6cf02b7261fc1701aef73f7e7179ba09cc",
+  "copied_at": "2026-04-14T16:40:30+00:00",
+  "files": [
+    ".env.deploy.example",
+    "README.md",
+    "bin/deploy",
+    "config/deploy.yml"
+  ]
+}

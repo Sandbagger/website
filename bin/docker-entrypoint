@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+
+# Prepare the SQLite database on the web role's boot only.
+# Other roles (e.g. litestream) share the same volume and must not race.
+if [ "${1}" = "./bin/rails" ] && [ "${2}" = "server" ]; then
+  ./bin/rails db:prepare
+fi
+
+exec "${@}"
