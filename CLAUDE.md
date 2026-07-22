@@ -31,10 +31,6 @@ Pages are not controllers. Routes end in `sitepress_pages` + `sitepress_root` (`
 
 No preprocessor. `app/assets/stylesheets/application.css` imports in a load-bearing order: `global` → `compositions` → `utilities` → `blocks`. The cascade is intentional — adding imports out of order will change specificity outcomes. Composition CSS corresponds 1:1 to Phlex layout-primitive components (`box`, `center`, `cluster`, `stack`, `flow`).
 
-### Hit tracking
-
-`HitController#handle` serves a 1x1 gif pixel (embedded in the markdown component) and writes a `Hit` row keyed by a permanent `unique_id` cookie. Cache headers vary per `path` param so the pixel request isn't collapsed across pages. Currently driven via CSS (no Stimulus controller) — see comments in `application_layout.rb` and `hit_controller.rb`.
-
 ### Post cover images
 
 `PostImageGenerator` (`lib/post_image_generator.rb`) reads frontmatter from every writing page and deterministically hashes the slug into an SVG (gradient + circles + title). Run via the `images:generate_posts` rake task. Skips existing files unless `overwrite: true`.
