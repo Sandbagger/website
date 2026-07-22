@@ -13,8 +13,10 @@ if [[ ! -x "$verifier" ]]; then
 fi
 
 cat > "$temp_dir/bundle" <<'BUNDLE'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$BUNDLE_LOG"
+#!/bin/bash
+logged_arguments=$*
+logged_arguments=${logged_arguments//$'\n'/\\n}
+printf '%s\n' "$logged_arguments" >> "$BUNDLE_LOG"
 
 if [[ "${BUNDLE_MODE:-success}" == "fail" ]]; then
   exit 1
@@ -26,8 +28,24 @@ if [[ "${BUNDLE_MODE:-success}" == "hang" ]]; then
     :
   done
 fi
+
+if [[ "${BUNDLE_MODE:-success}" == "parse" ]]; then
+  remote_command="${!#}"
+  /bin/sh -c "$remote_command"
+fi
 BUNDLE
 chmod +x "$temp_dir/bundle"
+
+cat > "$temp_dir/bash" <<'BASH'
+#!/bin/bash
+if [[ "${1:-}" == "-lc" ]]; then
+  printf '%s' "${2:-}" > "$BASH_REMOTE_SCRIPT_LOG"
+  exit 0
+fi
+
+exec /bin/bash "$@"
+BASH
+chmod +x "$temp_dir/bash"
 
 cat > "$temp_dir/sleep" <<'SLEEP'
 #!/usr/bin/env bash
@@ -55,10 +73,33 @@ fi
 
 grep -F 'restore_path=/tmp/litestream-verify.sqlite3' "$success_log"
 grep -F "rm -f -- \"\$restore_path\"" "$success_log"
-grep -F "trap \\'rm -f -- \"\$restore_path\"\\' EXIT" "$success_log"
 grep -F 'litestream restore -config config/litestream.yml -o /tmp/litestream-verify.sqlite3 /rails/storage/db/production.sqlite3' "$success_log"
 grep -F 'SQLite3::Database' "$success_log"
 grep -F 'PRAGMA integrity_check' "$success_log"
+
+parsed_remote_script="$temp_dir/parsed-remote-script"
+PATH="$temp_dir:$PATH" \
+BUNDLE_LOG="$temp_dir/parse.log" \
+BUNDLE_MODE=parse \
+BASH_REMOTE_SCRIPT_LOG="$parsed_remote_script" \
+KAMAL_DESTINATION=staging \
+LITESTREAM_REPLICA_VERIFY_TIMEOUT=1 \
+"$verifier"
+
+expected_remote_script=$(cat <<'REMOTE'
+set -euo pipefail
+
+restore_path=/tmp/litestream-verify.sqlite3
+rm -f -- "$restore_path"
+trap 'rm -f -- "$restore_path"' EXIT
+
+litestream restore -config config/litestream.yml -o /tmp/litestream-verify.sqlite3 /rails/storage/db/production.sqlite3
+ruby -r sqlite3 -e 'database = SQLite3::Database.new(ARGV.fetch(0)); integrity_check = database.get_first_value("PRAGMA integrity_check"); abort "integrity_check=#{integrity_check.inspect}" unless integrity_check == "ok"' "$restore_path"
+rm -f -- "$restore_path"
+REMOTE
+)
+[[ -f "$parsed_remote_script" ]]
+[[ $(< "$parsed_remote_script") == "$expected_remote_script" ]]
 
 failed_log="$temp_dir/failed.log"
 failed_stderr="$temp_dir/failed.stderr"

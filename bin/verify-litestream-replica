@@ -26,6 +26,26 @@ rm -f -- "$restore_path"
 REMOTE
 )
 
+quote_for_sh() {
+  local input=$1
+  local output="'"
+  local index
+  local character
+
+  for (( index = 0; index < ${#input}; index++ )); do
+    character=${input:index:1}
+    if [[ $character == "'" ]]; then
+      output+="'\"'\"'"
+    else
+      output+=$character
+    fi
+  done
+
+  printf "%s'" "$output"
+}
+
+remote_command_quoted=$(quote_for_sh "$remote_command")
+
 run_kamal_attempt() {
   local attempt_timeout=$1
   shift
@@ -60,7 +80,7 @@ while (( attempts < max_attempts && (SECONDS < deadline || attempts == 0) )); do
     break
   fi
 
-  if run_kamal_attempt "$attempt_timeout" bundle exec kamal "${destination_args[@]}" app exec -r web --reuse "bash -lc $(printf '%q' "$remote_command")" >/dev/null 2>&1; then
+  if run_kamal_attempt "$attempt_timeout" bundle exec kamal "${destination_args[@]}" app exec -r web --reuse "bash -lc $remote_command_quoted" >/dev/null 2>&1; then
     exit 0
   fi
 
