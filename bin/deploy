@@ -9,7 +9,7 @@ ENV_FILE=$HERE/.env.deploy
 
 if [[ ! -f $ENV_FILE ]]; then
   echo "error=missing_env_file path=$ENV_FILE" >&2
-  echo "hint=hetzner-tf-existing-server-handoff --format env root@<host> <app> > .env.deploy" >&2
+  echo "hint=dotfiles-hetzner-tf handoff website --format env > .env.deploy" >&2
   exit 1
 fi
 
@@ -27,7 +27,7 @@ for var in "${required[@]}"; do
 done
 if (( ${#missing[@]} > 0 )); then
   echo "error=missing_vars vars=${missing[*]}" >&2
-  echo "hint=regenerate .env.deploy from hetzner-tf-existing-server-handoff" >&2
+  echo "hint=regenerate .env.deploy with dotfiles-hetzner-tf handoff website --format env" >&2
   exit 2
 fi
 

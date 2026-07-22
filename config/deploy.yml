@@ -17,6 +17,7 @@ servers:
 proxy:
   ssl: true
   host: williamneal.dev
+  app_port: 3000
 
 registry:
   server: ghcr.io
@@ -38,7 +39,7 @@ env:
     RAILS_ENV: production
     RAILS_SERVE_STATIC_FILES: "true"
     RAILS_LOG_TO_STDOUT: "true"
-    LITESTREAM_DATABASE_PATH: /rails/storage/production.sqlite3
+    LITESTREAM_DATABASE_PATH: /rails/storage/db/production.sqlite3
   secret:
     - RAILS_MASTER_KEY
     - LITESTREAM_REPLICA_URL

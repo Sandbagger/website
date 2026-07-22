@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${KAMAL_HOST:?missing KAMAL_HOST}"
+: "${APP_SHARED_ROOT:?missing APP_SHARED_ROOT}"
+
+case "$APP_SHARED_ROOT" in
+  /srv/apps/*/shared) ;;
+  *)
+    echo "APP_SHARED_ROOT must be an app shared-host path: $APP_SHARED_ROOT" >&2
+    exit 1
+    ;;
+esac
+
+ssh "root@$KAMAL_HOST" bash -s -- "$APP_SHARED_ROOT" <<'REMOTE'
+set -euo pipefail
+
+app_shared_root="$1"
+install -d -m 0750 -o 1000 -g 1000 -- "$app_shared_root" "$app_shared_root/db"
+REMOTE

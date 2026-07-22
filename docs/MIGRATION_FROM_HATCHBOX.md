@@ -68,12 +68,12 @@ local development. The `Dockerfile` applies the same string before
 change one, change the other. Cross-referenced from `CLAUDE.md` so future me
 doesn't miss it.
 
-### Database path: `storage/production.sqlite3`, no `DATABASE_URL` override
+### Database path: `storage/db/production.sqlite3`, no `DATABASE_URL` override
 
 The scaffold template set `DATABASE_URL=sqlite3:///rails/storage/db/production.sqlite3`
-which conflicted with `config/database.yml`'s relative `storage/production.sqlite3`
+which conflicted with `config/database.yml`'s relative `storage/db/production.sqlite3`
 path. Dropped the `DATABASE_URL` override; `database.yml` resolves to
-`/rails/storage/production.sqlite3` with `WORKDIR=/rails`. `LITESTREAM_DATABASE_PATH`
+`/rails/storage/db/production.sqlite3` with `WORKDIR=/rails`. `LITESTREAM_DATABASE_PATH`
 is set explicitly to match.
 
 ## What changed in the repo

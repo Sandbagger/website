@@ -16,7 +16,7 @@ Kamal v2 onto the OpenTofu-managed Hetzner shared host (contract documented in
 ## Shared-host contract
 
 - Durable state: `/srv/apps/website/shared` on the host → `/rails/storage` in the container.
-- SQLite DB: `/rails/storage/production.sqlite3` (matches `config/database.yml`).
+- SQLite DB: `/rails/storage/db/production.sqlite3` (matches `config/database.yml`).
 - Active Storage: `/rails/storage`.
 - Backups: `/srv/backups/website` — host-level concern, not Kamal's.
 - Litestream runs as its own role on the same image, writing to S3/B2 continuously.
@@ -24,9 +24,8 @@ Kamal v2 onto the OpenTofu-managed Hetzner shared host (contract documented in
 ## One-time bootstrap
 
 ```bash
-# 1. Generate handoff values from the live server
-hetzner-tf-existing-server-handoff --format env root@shared-kamal-01 website \
-  > .env.deploy
+# 1. Generate shared-host values
+dotfiles-hetzner-tf handoff website --format env > .env.deploy
 
 # 2. Fill the secret slots in .env.deploy (from 1Password):
 #      KAMAL_REGISTRY_PASSWORD  — GitHub PAT with write:packages
@@ -35,8 +34,9 @@ hetzner-tf-existing-server-handoff --format env root@shared-kamal-01 website \
 #      LITESTREAM_ACCESS_KEY_ID
 #      LITESTREAM_SECRET_ACCESS_KEY
 
-# 3. First deploy
-bundle exec kamal setup     # idempotent; configures proxy + pulls first image
+# 3. First deploy. The Kamal pre-app-boot hook creates the shared directory
+#    and its db/ directory with the container's UID/GID before Rails starts.
+bin/deploy setup            # idempotent; configures proxy + pulls first image
 bin/deploy                  # subsequent deploys
 ```
 
