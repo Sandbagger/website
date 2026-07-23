@@ -3,6 +3,10 @@
 .gitattributes
 .github
 
+# Rails credential keys are runtime secrets, never build inputs.
+config/master.key
+config/credentials/*.key
+
 # Deploy scaffolding never travels into the image.
 .kamal
 .env

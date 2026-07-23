@@ -5,7 +5,10 @@ set -euo pipefail
 project_root=$(cd "$(dirname "$0")/.." && pwd)
 image=${IMAGE:-website-kamal-cutover:native}
 port=${PORT:-3000}
-master_key_file="$project_root/config/master.key"
+master_key_files=(
+  "$project_root/config/credentials/production.key"
+  "$project_root/config/master.key"
+)
 
 if ! command -v docker >/dev/null 2>&1; then
   echo 'error=docker_not_found' >&2
@@ -13,13 +16,19 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 if [[ -z "${RAILS_MASTER_KEY:-}" ]]; then
-  if [[ ! -r "$master_key_file" ]]; then
-    echo "error=missing_rails_master_key path=$master_key_file" >&2
+  for master_key_file in "${master_key_files[@]}"; do
+    if [[ -r "$master_key_file" ]]; then
+      export RAILS_MASTER_KEY="$(<"$master_key_file")"
+      break
+    fi
+  done
+
+  if [[ -z "${RAILS_MASTER_KEY:-}" ]]; then
+    echo 'error=missing_rails_master_key' >&2
+    echo "hint=add one of: ${master_key_files[*]}" >&2
     echo 'hint=export RAILS_MASTER_KEY before running this helper' >&2
     exit 1
   fi
-
-  export RAILS_MASTER_KEY="$(<"$master_key_file")"
 fi
 
 if ! docker image inspect "$image" >/dev/null 2>&1; then

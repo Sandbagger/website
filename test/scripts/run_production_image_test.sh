@@ -43,3 +43,10 @@ grep -Fx -- '-p' "$temp_dir/docker-args"
 grep -Fx '3000:3000' "$temp_dir/docker-args"
 grep -Fx 'website-kamal-cutover:native' "$temp_dir/docker-args"
 grep -Fx 'bin/run-production-image' "$project_root/.dockerignore"
+
+DOCKER_ARGS="$temp_dir/docker-args-from-file" \
+DOCKER_RESULT="$temp_dir/docker-result-from-file" \
+PATH="$temp_dir:$PATH" \
+"$project_root/bin/run-production-image"
+
+grep -Fx 'master_key=present' "$temp_dir/docker-result-from-file"
