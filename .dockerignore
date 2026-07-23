@@ -47,6 +47,5 @@ docs
 README.md
 LICENSE
 
-# Procfile.dev is foreman-local; Procfile is kept because Litestream role
-# uses bin/rails litestream:replicate directly, not Procfile.
+# Procfile.dev is foreman-local; Procfile is kept for local process tools.
 Procfile.dev

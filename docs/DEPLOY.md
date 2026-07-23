@@ -7,10 +7,10 @@ Kamal v2 onto the OpenTofu-managed Hetzner shared host (contract documented in
 
 - `Dockerfile` — multi-stage build; rebuilds `sqlite3` with the project's compile flags (`DQS=0`, FTS5, etc.).
 - `.dockerignore` — keeps dev cruft out of the build context.
-- `config/deploy.yml` — two roles on one image: `web` (Rails) and `litestream` (replication sidecar).
+- `config/deploy.yml` — the `web` Rails role and its durable host volume.
 - `bin/deploy` — loads `.env.deploy`, asserts the shared-host contract vars, then delegates to `bundle exec kamal`.
 - `bin/deploy-preflight` — checks host ownership, durable storage, and ingress safety before Kamal changes it.
-- `bin/docker-entrypoint` — prepares SQLite, verifies WAL mode, and publishes web readiness before Rails boots.
+- `bin/docker-entrypoint` — prepares SQLite and verifies WAL mode before Rails boots.
 - `.env.deploy.example` — template for handoff values.
 - `.deploy-scaffold.json` — manifest tracking the upstream `hetzner-basic` template.
 
@@ -29,10 +29,11 @@ again.
   and its `db/` directory are materialized as `1000:1000`.
 - Ports 80 and 443 must be unbound or owned by the exact `kamal-proxy`
   container. Existing ingress is never displaced to make a deployment work.
-- The web role clears `.web-ready`, prepares SQLite, verifies WAL mode, and
-  writes the marker only when it is ready. The Litestream role waits for that
-  marker. A successful container start is not enough: verify a remote replica
-  restore after deployment before accepting the deploy.
+- The web role prepares SQLite and verifies WAL mode before the Rails server
+  starts. Database durability is limited to the mounted `/srv` path; this
+  application does not configure, run, or verify off-host backups.
+- Recovery relies on host snapshots or backups operated and tested separately
+  by the host operator.
 
 The provider firewall, DNS, Let's Encrypt, and volume checks are **live
 external state**. They are not established by local rendering or documentation
@@ -56,11 +57,11 @@ bin/deploy
 
 Staging is a separate Kamal destination at `staging.williamneal.dev`, with the
 separate service `website-staging`. It must never share production's mounted
-directory, database, Active Storage files, or Litestream replica path.
+directory, database, or Active Storage files.
 
 ```bash
 dotfiles-hetzner-tf handoff website-staging --format env > .env.deploy.staging
-# Fill only the staging secret slots, including a distinct LITESTREAM_REPLICA_URL.
+# Fill only the staging secret slots.
 bin/deploy staging setup
 bin/deploy staging
 bin/deploy staging logs -r web
@@ -98,11 +99,10 @@ complete.
    ```
 
    Do not use `bin/deploy` for this local render because the wrapper preflights the host.
-   Confirm the expected service, storage path, and readiness settings.
+   Confirm the expected service and storage path.
 2. **Staging:** after its hostname DNS and TLS are live, verify staging TLS
-   `/up`, pages/feed, and a remote replica restore. A restore check means
-   restoring the replica into an isolated location and confirming the restored
-   SQLite data is usable; do not replace the live database to test it.
+   `/up` and pages/feed. Separately confirm the host snapshot or backup policy
+   that covers the staging `/srv` volume.
 3. **Before production DNS:** independently test the public firewall TCP 80/443 path.
    Confirm ingress ownership is unbound or the exact `kamal-proxy` container.
    These are live external state checks.
@@ -110,11 +110,12 @@ complete.
    Announce maintenance before the production change.
 5. Point DNS at the Kamal host, then run setup so Let's Encrypt can validate
    the hostname and Kamal can configure its proxy.
-6. Verify production TLS `/up`, pages/feed, WAL/readiness behavior, and a
-   remote replica restore before accepting the deployment.
-7. Abort the cutover: return DNS to Hatchbox if setup, TLS, health, or replica
-   verification fails. Investigate without attempting to displace ingress or
-   overwrite persistent data.
+6. Verify production TLS `/up`, pages/feed, and WAL behavior before accepting
+   the deployment. Separately confirm the host snapshot or backup policy that
+   covers the production `/srv` volume.
+7. Abort the cutover: return DNS to Hatchbox if setup, TLS, or health checks
+   fail. Investigate without attempting to displace ingress or overwrite
+   persistent data.
 
 ## Useful commands
 
@@ -123,7 +124,6 @@ bin/deploy                          # kamal deploy
 bin/deploy console                  # rails console on the web role
 bin/deploy dbconsole                # sqlite console on the web role
 bin/deploy logs -r web              # tail web logs
-bin/deploy logs -r litestream       # tail litestream logs
 ```
 
 ## Refreshing the scaffold

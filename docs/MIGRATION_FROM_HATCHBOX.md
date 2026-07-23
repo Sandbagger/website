@@ -27,28 +27,16 @@ VPS. Per-app isolation is provided by the `/srv/apps/<app>/shared` contract.
 - Docker Hub has free-tier pull rate limits that can bite in production.
 - Hetzner's own registry is still immature.
 
-### Two Kamal roles on one image (`web` + `litestream`)
+### One Kamal web role with durable local SQLite
 
-Litestream is in the Procfile under Hatchbox (`bin/rails litestream:replicate`).
-It remains a separate Kamal role rather than:
+Kamal runs Rails as a single `web` role. Its host volume mounts at
+`/rails/storage`, so SQLite and Active Storage persist at
+`/srv/apps/website/shared`. The entrypoint prepares the database and verifies
+WAL mode before starting Rails.
 
-- **Accessory** — would need its own image and its own config, and the current
-  setup uses the Ruby gem's rake task, not the standalone binary.
-- **Co-process in `web` container via foreman** — foreman-in-container has
-  signal-handling sharp edges and fights Kamal's "one process per container"
-  model.
-
-Two roles on the same image share `/rails/storage` via the volume mount; the
-web container writes SQLite (WAL mode, one writer), Litestream reads. Cost is
-running one extra small container.
-
-### Keep Litestream (belt + suspenders) despite host-level backups
-
-The shared-host contract provisions `/srv/backups/website` snapshots.
-Litestream gives point-in-time continuous replication on top of that. At the
-scale of a personal blog, the marginal cost is trivial and the failure modes
-are genuinely different: host-level snapshots do not cover every volume-loss
-window between snapshot runs.
+The application does not manage off-host database replication or backups.
+Recovery depends on host snapshots or backups that operators configure, retain,
+and test separately.
 
 ### `config.assume_ssl = true` in production
 
@@ -70,25 +58,26 @@ The scaffold's `DATABASE_URL=sqlite3:///rails/storage/db/production.sqlite3`
 conflicted with `config/database.yml`'s relative
 `storage/db/production.sqlite3` path. Without that override, `database.yml`
 resolves to `/rails/storage/db/production.sqlite3` with `WORKDIR=/rails`.
-`LITESTREAM_DATABASE_PATH` is set explicitly to match.
+No database path environment override is required.
 
 ## Guarded cutover and rollback
 
 Follow the guarded checklist in `docs/DEPLOY.md`: locally build and render
-without secret output; validate staging TLS `/up`, pages/feed, and an isolated
-remote replica restore; then independently verify the public firewall TCP
-80/443 path and ingress before production DNS changes. Provider firewall,
-DNS, Let's Encrypt, and volume state are live external state, so treat local
-success as insufficient.
+without secret output; validate staging TLS `/up` and pages/feed; then
+independently verify the public firewall TCP 80/443 path and ingress before
+production DNS changes. Separately confirm that host snapshots or backups cover
+the durable `/srv` volume. Provider firewall, DNS, Let's Encrypt, volume state,
+and backup state are live external state, so treat local success as
+insufficient.
 
 Lower the TTL and wait the original TTL, announce maintenance, point DNS to
 the Kamal host, and run setup. Do not visit the target IP directly before DNS:
 automatic TLS requires hostname DNS. Accept the deployment only after TLS,
-health, WAL/readiness, and remote replica restore verification succeed.
+health, WAL, and the separately operated host backup policy have been checked.
 
-If setup, TLS, health, or replica verification fails, return DNS to Hatchbox.
-Do not take over a foreign listener on 80/443 and do not overwrite persistent
-data while diagnosing the failure.
+If setup, TLS, or health verification fails, return DNS to Hatchbox. Do not
+take over a foreign listener on 80/443 and do not overwrite persistent data
+while diagnosing the failure.
 
 Hatchbox's Procfile/service remains during the observation period. It may be
 removed only in a separate later decommission change, after the guarded

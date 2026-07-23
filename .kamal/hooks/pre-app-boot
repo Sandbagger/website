@@ -27,5 +27,4 @@ install -d -m 0750 -o 1000 -g 1000 -- "$app_shared_root" "$app_shared_root/db"
   exit 1
 }
 
-rm -f -- "$app_shared_root/.web-ready"
 REMOTE
