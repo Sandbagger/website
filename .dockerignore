@@ -3,12 +3,15 @@
 .gitattributes
 .github
 
-# Deploy scaffolding (only bin/deploy + config/deploy.yml travel into the image)
+# Deploy scaffolding never travels into the image.
 .kamal
 .env
 .env.*
 !.env.deploy.example
 .deploy-scaffold.json
+
+# Local production smoke test stays on the host.
+bin/run-production-image
 
 # Dev servers + editor state
 .tmuxp.yml
