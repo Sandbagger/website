@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Stack
 
-Rails 8 + SQLite (via Litestack/Litestream) + Phlex views + Sitepress for static content + Markdown-Rails + Propshaft + jsbundling (esbuild) + Hotwire. Ruby 3.3.5. Deployed via Kamal v2 (container image on GHCR → shared Hetzner host); see `docs/DEPLOY.md`.
+Rails 8 + SQLite (via Litestack) + Phlex views + Sitepress for static content + Markdown-Rails + Propshaft + jsbundling (esbuild) + Hotwire. Ruby 3.3.5. Deployed via Kamal v2 (container image on GHCR → shared Hetzner host); see `docs/DEPLOY.md`.
 
 ## Commands
 
@@ -38,11 +38,11 @@ No preprocessor. `app/assets/stylesheets/application.css` imports in a load-bear
 
 ### SQLite configuration
 
-SQLite is compiled with aggressive pragmas (see README.md). The Dockerfile re-applies these flags via `bundle config set --local build.sqlite3 ...` before `bundle install` — if you change the flags, update both the README and the Dockerfile. Uses Litestack for queue/cache/cable and Litestream for replication (`config/litestream.yml`, runs as its own Kamal role).
+SQLite is compiled with aggressive pragmas (see README.md). The Dockerfile re-applies these flags via `bundle config set --local build.sqlite3 ...` before `bundle install` — if you change the flags, update both the README and the Dockerfile. Litestack provides queue/cache/cable. Production SQLite is durable only on the mounted `/srv/apps/website/shared` host path; host snapshots and backups are operated separately from this application.
 
 ### Deployment
 
-`config/deploy.yml` runs two roles on one image: `web` (Rails) and `litestream` (replication). Both mount `/srv/apps/website/shared` → `/rails/storage`, so SQLite + Active Storage + Litestream all share the same durable path. Secrets (`RAILS_MASTER_KEY`, `KAMAL_REGISTRY_PASSWORD`, `LITESTREAM_*`) come from `.env.deploy` at deploy time, sourced from 1Password.
+`config/deploy.yml` runs the `web` role and mounts `/srv/apps/website/shared` → `/rails/storage`, where SQLite and Active Storage persist. Secrets (`RAILS_MASTER_KEY`, `KAMAL_REGISTRY_PASSWORD`) come from `.env.deploy` at deploy time, sourced from 1Password. Recovery depends on separately operated host snapshots or backups.
 
 ## Conventions
 

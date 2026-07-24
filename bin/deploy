@@ -44,6 +44,8 @@ if (( ${#missing[@]} > 0 )); then
   exit 2
 fi
 
+"$HERE/bin/deploy-preflight"
+
 if ! bundle exec kamal version >/dev/null 2>&1; then
   echo "error=kamal_not_found" >&2
   echo "hint=bundle install (kamal is a development Gemfile dep)" >&2

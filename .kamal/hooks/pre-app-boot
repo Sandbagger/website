@@ -17,4 +17,14 @@ set -euo pipefail
 
 app_shared_root="$1"
 install -d -m 0750 -o 1000 -g 1000 -- "$app_shared_root" "$app_shared_root/db"
+
+[[ $(stat -c '%u:%g' -- "$app_shared_root") == '1000:1000' ]] || {
+  echo 'error=app_shared_root_owner_invalid' >&2
+  exit 1
+}
+[[ $(stat -c '%u:%g' -- "$app_shared_root/db") == '1000:1000' ]] || {
+  echo 'error=app_shared_db_owner_invalid' >&2
+  exit 1
+}
+
 REMOTE

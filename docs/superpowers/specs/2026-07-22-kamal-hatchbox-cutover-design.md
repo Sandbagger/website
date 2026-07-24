@@ -1,5 +1,10 @@
 # Kamal Hatchbox Cutover Design
 
+> **Status: Superseded on 2026-07-23.** This historical design includes
+> Litestream replication, which has been removed. Follow `docs/DEPLOY.md` and
+> `docs/superpowers/plans/2026-07-23-remove-litestream.md` for the current
+> single-role deployment and host-backup-only recovery posture.
+
 ## Goal
 
 Make the repository ready to move `williamneal.dev` from Hatchbox to Kamal on

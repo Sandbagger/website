@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Run the locally built production image with real runtime secrets.
+set -euo pipefail
+
+project_root=$(cd "$(dirname "$0")/.." && pwd)
+image=${IMAGE:-website-kamal-cutover:native}
+port=${PORT:-3000}
+master_key_files=(
+  "$project_root/config/credentials/production.key"
+  "$project_root/config/master.key"
+)
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo 'error=docker_not_found' >&2
+  exit 1
+fi
+
+if [[ -z "${RAILS_MASTER_KEY:-}" ]]; then
+  for master_key_file in "${master_key_files[@]}"; do
+    if [[ -r "$master_key_file" ]]; then
+      export RAILS_MASTER_KEY="$(<"$master_key_file")"
+      break
+    fi
+  done
+
+  if [[ -z "${RAILS_MASTER_KEY:-}" ]]; then
+    echo 'error=missing_rails_master_key' >&2
+    echo "hint=add one of: ${master_key_files[*]}" >&2
+    echo 'hint=export RAILS_MASTER_KEY before running this helper' >&2
+    exit 1
+  fi
+fi
+
+if ! docker image inspect "$image" >/dev/null 2>&1; then
+  echo "error=missing_image image=$image" >&2
+  echo 'hint=build it with: docker build -t website-kamal-cutover:native .' >&2
+  exit 1
+fi
+
+if [[ ! "$port" =~ ^[0-9]+$ ]]; then
+  echo "error=invalid_port port=$port" >&2
+  exit 1
+fi
+
+unset SECRET_KEY_BASE_DUMMY
+export SECRET_KEY_BASE="$(ruby -r securerandom -e 'print SecureRandom.hex(64)')"
+
+echo "Running $image at http://localhost:$port"
+exec docker run --rm --init --name website-local -p "$port:3000" \
+  -e RAILS_MASTER_KEY -e SECRET_KEY_BASE "$image"

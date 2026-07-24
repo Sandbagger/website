@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# Prepare the SQLite database on the web role's boot only.
-# Other roles (e.g. litestream) share the same volume and must not race.
-if [ "${1}" = "./bin/rails" ] && [ "${2}" = "server" ]; then
+# Prepare the SQLite database before the production web server boots.
+if [[ ${1:-} == "./bin/rails" && ${2:-} == "server" ]]; then
   ./bin/rails db:prepare
+
+  journal_mode=$(./bin/rails runner "puts ActiveRecord::Base.connection.select_value('PRAGMA journal_mode')" | tail -n 1)
+  if [[ $journal_mode != "wal" ]]; then
+    echo "error=sqlite_not_wal journal_mode=$journal_mode" >&2
+    exit 1
+  fi
+
 fi
 
 exec "${@}"

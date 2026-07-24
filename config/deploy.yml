@@ -9,10 +9,6 @@ servers:
   web:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
-  litestream:
-    hosts:
-      - <%= ENV['KAMAL_HOST'] %>
-    cmd: ./bin/rails litestream:replicate
 
 proxy:
   ssl: true
@@ -29,8 +25,7 @@ builder:
   arch: amd64
 
 # Shared-host contract: durable state lives at /srv/apps/website/shared on the host.
-# Mounted at /rails/storage so both Rails (SQLite + Active Storage) and
-# Litestream see the same file.
+# Mounted at /rails/storage for Rails SQLite and Active Storage.
 volumes:
   - "<%= ENV.fetch('APP_SHARED_ROOT') %>:/rails/storage"
 
@@ -39,15 +34,10 @@ env:
     RAILS_ENV: production
     RAILS_SERVE_STATIC_FILES: "true"
     RAILS_LOG_TO_STDOUT: "true"
-    LITESTREAM_DATABASE_PATH: /rails/storage/db/production.sqlite3
   secret:
     - RAILS_MASTER_KEY
-    - LITESTREAM_REPLICA_URL
-    - LITESTREAM_ACCESS_KEY_ID
-    - LITESTREAM_SECRET_ACCESS_KEY
 
 aliases:
   console: app exec --interactive --reuse "bin/rails console"
   dbconsole: app exec --interactive --reuse "bin/rails dbconsole"
   logs-web: app logs -r web -f
-  logs-litestream: app logs -r litestream -f

@@ -3,12 +3,19 @@
 .gitattributes
 .github
 
-# Deploy scaffolding (only bin/deploy + config/deploy.yml travel into the image)
+# Rails credential keys are runtime secrets, never build inputs.
+config/master.key
+config/credentials/*.key
+
+# Deploy scaffolding never travels into the image.
 .kamal
 .env
 .env.*
 !.env.deploy.example
 .deploy-scaffold.json
+
+# Local production smoke test stays on the host.
+bin/run-production-image
 
 # Dev servers + editor state
 .tmuxp.yml
@@ -40,6 +47,5 @@ docs
 README.md
 LICENSE
 
-# Procfile.dev is foreman-local; Procfile is kept because Litestream role
-# uses bin/rails litestream:replicate directly, not Procfile.
+# Procfile.dev is foreman-local; Procfile is kept for local process tools.
 Procfile.dev
