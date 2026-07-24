@@ -10,6 +10,7 @@ Kamal v2 onto the OpenTofu-managed Hetzner shared host (contract documented in
 - `config/deploy.yml` — the `web` Rails role and its durable host volume.
 - `bin/deploy` — loads `.env.deploy`, asserts the shared-host contract vars, then delegates to `bundle exec kamal`.
 - `bin/deploy-preflight` — checks host ownership, durable storage, and ingress safety before Kamal changes it.
+- `bin/setup-kamal` — one-time guided helper that validates prerequisites and Kamal availability; `--apply` delegates to `bin/deploy setup` (`kamal setup`), which itself performs the initial application deployment.
 - `bin/docker-entrypoint` — prepares SQLite and verifies WAL mode before Rails boots.
 - `.env.deploy.example` — template for handoff values.
 - `.deploy-scaffold.json` — manifest tracking the upstream `hetzner-basic` template.
@@ -48,10 +49,19 @@ dotfiles-hetzner-tf handoff website --format env > .env.deploy
 # 2. Fill the blank secret slots in .env.deploy from 1Password.
 #    Never print the completed file or copy its values into the shell history.
 
-# 3. Run the guarded checklist below before `bin/deploy setup`.
-bin/deploy setup
-bin/deploy
+# 3. Validate prerequisites and review the output.
+bin/setup-kamal
+
+# 4. Continue with the guarded cutover operator checklist below.
 ```
+
+By default, `bin/setup-kamal` is guided validation: it tells the operator
+which prerequisite is missing and the exact next action. It neither provisions
+Hetzner nor changes production DNS, and it never asks for or prints secret
+values. After completing the required preparation and manually pointing
+production DNS in checklist step 5, run `bin/setup-kamal --apply`. It
+delegates to `bin/deploy setup` (`kamal setup`), which itself performs the
+initial application deployment. Use `bin/deploy` for later releases.
 
 ## Staging isolation
 
@@ -59,11 +69,14 @@ Staging is a separate Kamal destination at `staging.williamneal.dev`, with the
 separate service `website-staging`. It must never share production's mounted
 directory, database, or Active Storage files.
 
+Before staging setup, create its hostname DNS record and verify that it
+publicly resolves to the Hetzner host. Once it does, `bin/deploy staging setup`
+performs the initial staging deployment.
+
 ```bash
 dotfiles-hetzner-tf handoff website-staging --format env > .env.deploy.staging
 # Fill only the staging secret slots.
 bin/deploy staging setup
-bin/deploy staging
 bin/deploy staging logs -r web
 ```
 
@@ -108,8 +121,11 @@ complete.
    These are live external state checks.
 4. Lower the DNS TTL, then wait the original TTL before changing the record.
    Announce maintenance before the production change.
-5. Point DNS at the Kamal host, then run setup so Let's Encrypt can validate
-   the hostname and Kamal can configure its proxy.
+5. Manually point production DNS at the Kamal host as a separate action, then
+   verify the hostname publicly resolves to that Hetzner host. Then run
+   `bin/setup-kamal --apply`; it delegates to `bin/deploy setup` (`kamal
+   setup`), which lets Let's Encrypt validate the hostname, configures Kamal's
+   proxy, and itself performs the initial application deployment.
 6. Verify production TLS `/up`, pages/feed, and WAL behavior before accepting
    the deployment. Separately confirm the host snapshot or backup policy that
    covers the production `/srv` volume.
@@ -120,7 +136,7 @@ complete.
 ## Useful commands
 
 ```bash
-bin/deploy                          # kamal deploy
+bin/deploy                          # later production releases (kamal deploy)
 bin/deploy console                  # rails console on the web role
 bin/deploy dbconsole                # sqlite console on the web role
 bin/deploy logs -r web              # tail web logs
