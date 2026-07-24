@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Guide the safe first Kamal deployment without revealing deploy secrets.
+set -euo pipefail
+
+HERE=$(cd "$(dirname "$0")/.." && pwd)
+
+usage() {
+  echo 'usage: bin/setup-kamal [--apply]' >&2
+}
+
+case "${1:-}" in
+  '')
+    apply=false
+    ;;
+  --apply)
+    apply=true
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac
+
+if (( $# > 1 )); then
+  usage
+  exit 1
+fi
+
+default_env_file="$HERE/.env.deploy"
+ENV_FILE="${DEPLOY_ENV_FILE:-$default_env_file}"
+
+if [[ ! -f $ENV_FILE ]]; then
+  echo "error=missing_env_file path=$ENV_FILE" >&2
+  echo 'hint=dotfiles-hetzner-tf handoff website --format env > .env.deploy' >&2
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+
+required=(KAMAL_HOST APP_SHARED_ROOT KAMAL_REGISTRY_PASSWORD RAILS_MASTER_KEY)
+missing=()
+for var in "${required[@]}"; do
+  if [[ -z "${!var:-}" ]]; then
+    missing+=("$var")
+  fi
+done
+
+if (( ${#missing[@]} > 0 )); then
+  echo "error=missing_vars vars=${missing[*]}" >&2
+  for var in "${missing[@]}"; do
+    case "$var" in
+      KAMAL_HOST)
+        echo 'hint=set KAMAL_HOST from the Hetzner host/IP in the handoff' >&2
+        ;;
+      APP_SHARED_ROOT)
+        echo 'hint=set APP_SHARED_ROOT to /srv/apps/website/shared' >&2
+        ;;
+      KAMAL_REGISTRY_PASSWORD)
+        echo 'hint=set KAMAL_REGISTRY_PASSWORD from the GitHub Packages token in 1Password' >&2
+        ;;
+      RAILS_MASTER_KEY)
+        echo 'hint=set RAILS_MASTER_KEY from the production credentials key in 1Password' >&2
+        ;;
+    esac
+  done
+  exit 2
+fi
+
+if [[ "$KAMAL_HOST" == 'shared-kamal-01' ]]; then
+  echo 'error=template_kamal_host host=shared-kamal-01' >&2
+  echo 'hint=replace KAMAL_HOST with the Hetzner host/IP from the handoff' >&2
+  exit 2
+fi
+
+env_mode=$(stat -f '%Lp' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE")
+if (( (8#$env_mode & 8#077) != 0 )); then
+  echo 'error=insecure_env_file_permissions' >&2
+  echo 'hint=chmod 600 .env.deploy' >&2
+  exit 2
+fi
+
+if ! "$HERE/bin/deploy-preflight"; then
+  echo 'hint=repair the reported host prerequisite, then rerun bin/setup-kamal' >&2
+  exit 4
+fi
+
+if ! bundle exec kamal version >/dev/null 2>&1; then
+  echo "error=kamal_not_found" >&2
+  echo 'hint=bundle install (kamal is a development Gemfile dep)' >&2
+  exit 3
+fi
+
+if [[ "$apply" == true ]]; then
+  echo 'About to perform the first application deployment with Kamal.'
+  echo 'Later releases use bin/deploy.'
+  exec "$HERE/bin/deploy" setup
+fi
+
+echo 'Manually point DNS to the Hetzner host, then run bin/setup-kamal --apply.'
+echo 'bin/setup-kamal --apply performs the first application deployment.'
