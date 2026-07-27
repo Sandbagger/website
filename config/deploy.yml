@@ -24,8 +24,10 @@ registry:
 builder:
   arch: amd64
 
-# Shared-host contract: durable state lives at /srv/apps/website/shared on the host.
-# Mounted at /rails/storage for Rails SQLite and Active Storage.
+# State lives at /srv/apps/website/shared on the host and is mounted at
+# /rails/storage for Rails SQLite and Active Storage. A separate durable /srv
+# filesystem is the default; root-disk /srv requires the explicit, risky opt-in
+# documented in docs/DEPLOY.md.
 volumes:
   - "<%= ENV.fetch('APP_SHARED_ROOT') %>:/rails/storage"
 

@@ -38,11 +38,11 @@ No preprocessor. `app/assets/stylesheets/application.css` imports in a load-bear
 
 ### SQLite configuration
 
-SQLite is compiled with aggressive pragmas (see README.md). The Dockerfile re-applies these flags via `bundle config set --local build.sqlite3 ...` before `bundle install` — if you change the flags, update both the README and the Dockerfile. Litestack provides queue/cache/cable. Production SQLite is durable only on the mounted `/srv/apps/website/shared` host path; host snapshots and backups are operated separately from this application.
+SQLite is compiled with aggressive pragmas (see README.md). The Dockerfile re-applies these flags via `bundle config set --local build.sqlite3 ...` before `bundle install` — if you change the flags, update both the README and the Dockerfile. Litestack provides queue/cache/cable. Production SQLite persists only on the mounted `/srv/apps/website/shared` host path. A separate durable `/srv` filesystem is the default; `ALLOW_ROOT_DISK_STORAGE=1` is an explicit exception under which state survives deploys and reboots but is lost with a deleted, rebuilt, or failed root disk. Same-disk `/srv/backups` is not disaster recovery.
 
 ### Deployment
 
-`config/deploy.yml` runs the `web` role and mounts `/srv/apps/website/shared` → `/rails/storage`, where SQLite and Active Storage persist. Secrets (`RAILS_MASTER_KEY`, `KAMAL_REGISTRY_PASSWORD`) come from `.env.deploy` at deploy time, sourced from 1Password. Recovery depends on separately operated host snapshots or backups.
+`config/deploy.yml` runs the `web` role and mounts `/srv/apps/website/shared` → `/rails/storage`, where SQLite and Active Storage persist. Secrets (`RAILS_MASTER_KEY`, `KAMAL_REGISTRY_PASSWORD`) come from `.env.deploy` at deploy time, sourced from 1Password. The repository does not provide off-host backup or replication; see `docs/DEPLOY.md` for the storage exception and recovery consequences.
 
 ## Conventions
 

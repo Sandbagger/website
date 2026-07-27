@@ -14,10 +14,12 @@ with less abstraction between us and the running container.
 
 ### Target host: shared Hetzner box, not a fresh VPS
 
-The dotfiles repo provisions a shared Hetzner host via OpenTofu
-(`docs/HETZNER_KAMAL_SHARED_HOST.md`) intended to host multiple small apps on
-one machine. This site is small enough that it belongs there, not on its own
-VPS. Per-app isolation is provided by the `/srv/apps/<app>/shared` contract.
+This deployment adapts the dotfiles shared-host contract
+(`docs/HETZNER_KAMAL_SHARED_HOST.md`) for an existing Hetzner server intended
+to host multiple small apps on one machine. The server is being reused and is
+not provisioned by the current OpenTofu state. This site is small enough that
+it belongs there, not on its own VPS. Per-app isolation is provided by the
+`/srv/apps/<app>/shared` contract.
 
 ### Registry: GHCR
 
@@ -27,16 +29,20 @@ VPS. Per-app isolation is provided by the `/srv/apps/<app>/shared` contract.
 - Docker Hub has free-tier pull rate limits that can bite in production.
 - Hetzner's own registry is still immature.
 
-### One Kamal web role with durable local SQLite
+### One Kamal web role with local SQLite
 
 Kamal runs Rails as a single `web` role. Its host volume mounts at
 `/rails/storage`, so SQLite and Active Storage persist at
 `/srv/apps/website/shared`. The entrypoint prepares the database and verifies
 WAL mode before starting Rails.
 
-The application does not manage off-host database replication or backups.
-Recovery depends on host snapshots or backups that operators configure, retain,
-and test separately.
+A separate durable `/srv` filesystem remains the default. The existing
+Ubuntu 22.04 host may instead use `/srv` on its root disk only with the exact
+`ALLOW_ROOT_DISK_STORAGE=1` opt-in documented in `docs/DEPLOY.md`. In that
+mode state survives container replacement, deploys, Docker restarts, and
+ordinary reboots, but not deletion, rebuild, loss, or corruption of the
+server/root disk. `/srv/backups` is on the same disk and is not disaster
+recovery. This repository does not provide off-host backup or replication.
 
 ### `config.assume_ssl = true` in production
 
@@ -65,15 +71,15 @@ No database path environment override is required.
 Follow the guarded checklist in `docs/DEPLOY.md`: locally build and render
 without secret output; validate staging TLS `/up` and pages/feed; then
 independently verify the public firewall TCP 80/443 path and ingress before
-production DNS changes. Separately confirm that host snapshots or backups cover
-the durable `/srv` volume. Provider firewall, DNS, Let's Encrypt, volume state,
-and backup state are live external state, so treat local success as
-insufficient.
+production DNS changes. Provider firewall, DNS, Let's Encrypt, and volume
+state are live external state, so treat local success as insufficient. For
+the explicit root-disk exception, the website repository's preflight is the
+deployment gate; the dotfiles separate-volume verifier is not authoritative.
 
 Lower the TTL and wait the original TTL, announce maintenance, point DNS to
 the Kamal host, and run setup. Do not visit the target IP directly before DNS:
 automatic TLS requires hostname DNS. Accept the deployment only after TLS,
-health, WAL, and the separately operated host backup policy have been checked.
+health, WAL, and `df -h / /srv` have been checked.
 
 If setup, TLS, or health verification fails, return DNS to Hatchbox. Do not
 take over a foreign listener on 80/443 and do not overwrite persistent data

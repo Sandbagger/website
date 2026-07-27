@@ -1,7 +1,9 @@
 # Deploying williamneal.dev
 
-Kamal v2 onto the OpenTofu-managed Hetzner shared host (contract documented in
-`docs/HETZNER_KAMAL_SHARED_HOST.md` in the dotfiles repo).
+Kamal v2 onto an existing Hetzner host. This deployment adapts the shared-host
+contract documented in `docs/HETZNER_KAMAL_SHARED_HOST.md` in the dotfiles
+repo, with the explicit root-disk exception documented here. The existing
+server is being reused; it is not provisioned by the current OpenTofu state.
 
 ## Files in this repo
 
@@ -10,7 +12,8 @@ Kamal v2 onto the OpenTofu-managed Hetzner shared host (contract documented in
 - `config/deploy.yml` — the `web` Rails role and its durable host volume.
 - `bin/deploy` — loads `.env.deploy`, asserts the shared-host contract vars, then delegates to `bundle exec kamal`.
 - `bin/deploy-preflight` — checks host ownership, durable storage, and ingress safety before Kamal changes it.
-- `bin/setup-kamal` — one-time guided helper that validates prerequisites and Kamal availability; `--apply` delegates to `bin/deploy setup` (`kamal setup`), which itself performs the initial application deployment.
+- `bin/setup-kamal` — guided helper whose default mode performs read-only validation; `--bootstrap-host` explicitly prepares an existing host, and `--apply` delegates to `bin/deploy setup` (`kamal setup`) for the initial application deployment.
+- `bin/bootstrap-kamal-host` — the mutating, idempotent Ubuntu 22.04 host bootstrap invoked by `bin/setup-kamal --bootstrap-host`.
 - `bin/docker-entrypoint` — prepares SQLite and verifies WAL mode before Rails boots.
 - `.env.deploy.example` — template for handoff values.
 - `.deploy-scaffold.json` — manifest tracking the upstream `hetzner-basic` template.
@@ -21,53 +24,85 @@ Kamal v2 onto the OpenTofu-managed Hetzner shared host (contract documented in
 work around a failed preflight; repair the underlying host contract and run it
 again.
 
-- `/srv/bootstrap/.layout-ready` must exist. It is the OpenTofu bootstrap
-  marker for the shared host.
-- `/srv` must be a distinct durable `/srv` mount, not the root disk. It is the
-  only accepted location for application state.
+- `/srv/bootstrap/.layout-ready` must exist. It is the readiness marker written
+  by the OpenTofu host bootstrap or the explicit existing-host bootstrap.
+- `/srv` should be a distinct durable filesystem. This remains the safe
+  default; keep `ALLOW_ROOT_DISK_STORAGE=0` (or leave it unset).
+- Root-disk `/srv` is accepted only when the live deploy environment contains
+  the exact opt-in `ALLOW_ROOT_DISK_STORAGE=1`. Preflight then emits
+  `warning=root_disk_storage_enabled data_will_not_survive_server_loss`.
+  Any other value is treated as `0`, so a root-disk host fails closed.
 - Each service uses `/srv/apps/<service>/shared` (for example,
   `/srv/apps/website/shared`). `/srv/apps` is root-owned, while each app root
   and its `db/` directory are materialized as `1000:1000`.
 - Ports 80 and 443 must be unbound or owned by the exact `kamal-proxy`
   container. Existing ingress is never displaced to make a deployment work.
 - The web role prepares SQLite and verifies WAL mode before the Rails server
-  starts. Database durability is limited to the mounted `/srv` path; this
-  application does not configure, run, or verify off-host backups.
-- Recovery relies on host snapshots or backups operated and tested separately
-  by the host operator.
+  starts. State on mounted `/srv` survives container replacement, Kamal
+  deploys, Docker restarts, and ordinary server reboots. With root-disk
+  storage, it is lost when the server/root disk is deleted, rebuilt, lost, or
+  corrupted.
+- `/srv/backups` is on the same filesystem as the application state. On a
+  root-disk host it may hold local maintenance copies, but it is not disaster
+  recovery. This repository does not provide off-host backup or replication.
 
-The provider firewall, DNS, Let's Encrypt, and volume checks are **live
+The provider firewall, DNS, Let's Encrypt, and filesystem checks are **live
 external state**. They are not established by local rendering or documentation
-review, and they must be checked independently during an operator run.
+review, and they must be checked independently during an operator run. The
+dotfiles volume verifier describes the default separate-volume contract. It is
+intentionally not authoritative when the exact root-disk exception is enabled;
+the website repository's preflight is the deployment gate in that case.
 
 ## One-time bootstrap
 
 ```bash
-# 1. Generate shared-host values.
+# 1. Generate shared-host values once.
 dotfiles-hetzner-tf handoff website --format env > .env.deploy
 
 # 2. Fill the blank secret slots in .env.deploy from 1Password.
 #    Never print the completed file or copy its values into the shell history.
 
-# 3. Validate prerequisites and review the output.
+# 3. For this existing Ubuntu 22.04 root-disk host, edit .env.deploy in place:
+#    ALLOW_ROOT_DISK_STORAGE=1
+#    Do not regenerate the file after adding secrets; handoff output can
+#    overwrite the live file and its secret values.
+
+# 4. Explicitly bootstrap the existing host, then validate it.
+bin/setup-kamal --bootstrap-host
 bin/setup-kamal
 
-# 4. Continue with the guarded cutover operator checklist below.
+# 5. Continue with the guarded cutover operator checklist below.
 ```
 
 By default, `bin/setup-kamal` is guided validation: it tells the operator
-which prerequisite is missing and the exact next action. It neither provisions
-Hetzner nor changes production DNS, and it never asks for or prints secret
-values. After completing the required preparation and manually pointing
-production DNS in checklist step 5, run `bin/setup-kamal --apply`. It
-delegates to `bin/deploy setup` (`kamal setup`), which itself performs the
-initial application deployment. Use `bin/deploy` for later releases.
+which prerequisite is missing and the exact next action. Its default mode is
+read-only: it validates the host contract and Kamal availability without
+changing the host or deploying the application.
+
+`bin/setup-kamal --bootstrap-host` is an explicit, mutating SSH operation for
+an existing Ubuntu 22.04 host. It is idempotent: it verifies or creates only
+the managed `/srv` layout, installs Ubuntu's `docker.io` package only when the
+`docker` command is absent, and enables/starts Docker. It does not provision
+Hetzner, alter DNS or firewall rules, displace ingress, prune Docker data, or
+deploy the application. On success it prints `next=bin/setup-kamal`; rerun the
+default validation and resolve any reported ownership or foreign-ingress
+failure.
+
+After validation and the separate manual DNS action in checklist step 5,
+`bin/setup-kamal --apply` delegates to `bin/deploy setup` (`kamal setup`),
+which itself performs the initial application deployment. Use `bin/deploy`
+for later releases. None of the setup modes asks for or prints secret values.
 
 ## Staging isolation
 
 Staging is a separate Kamal destination at `staging.williamneal.dev`, with the
 separate service `website-staging`. It must never share production's mounted
 directory, database, or Active Storage files.
+
+Complete the one-time host bootstrap above before the first staging setup.
+That establishes the host-level `/srv` layout and readiness marker; Kamal's
+pre-app-boot hook creates the staging app directory with the required
+ownership.
 
 Before staging setup, create its hostname DNS record and verify that it
 publicly resolves to the Hetzner host. Once it does, `bin/deploy staging setup`
@@ -76,6 +111,8 @@ performs the initial staging deployment.
 ```bash
 dotfiles-hetzner-tf handoff website-staging --format env > .env.deploy.staging
 # Fill only the staging secret slots.
+# On the documented root-disk host, also edit this live file in place and set:
+# ALLOW_ROOT_DISK_STORAGE=1
 bin/deploy staging setup
 bin/deploy staging logs -r web
 ```
@@ -114,8 +151,7 @@ complete.
    Do not use `bin/deploy` for this local render because the wrapper preflights the host.
    Confirm the expected service and storage path.
 2. **Staging:** after its hostname DNS and TLS are live, verify staging TLS
-   `/up` and pages/feed. Separately confirm the host snapshot or backup policy
-   that covers the staging `/srv` volume.
+   `/up`, pages/feed, and `df -h / /srv`.
 3. **Before production DNS:** independently test the public firewall TCP 80/443 path.
    Confirm ingress ownership is unbound or the exact `kamal-proxy` container.
    These are live external state checks.
@@ -126,9 +162,10 @@ complete.
    `bin/setup-kamal --apply`; it delegates to `bin/deploy setup` (`kamal
    setup`), which lets Let's Encrypt validate the hostname, configures Kamal's
    proxy, and itself performs the initial application deployment.
-6. Verify production TLS `/up`, pages/feed, and WAL behavior before accepting
-   the deployment. Separately confirm the host snapshot or backup policy that
-   covers the production `/srv` volume.
+6. Verify production TLS `/up`, pages/feed, WAL behavior, and
+   `df -h / /srv` before accepting the deployment. On a root-disk host, treat
+   available space as operationally critical for both SQLite writes and
+   Docker image pulls.
 7. Abort the cutover: return DNS to Hatchbox if setup, TLS, or health checks
    fail. Investigate without attempting to displace ingress or overwrite
    persistent data.
