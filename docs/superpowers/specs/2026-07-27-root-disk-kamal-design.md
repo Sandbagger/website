@@ -51,24 +51,47 @@ deletion or rebuild. Preflight remains noninteractive and fails closed.
 
 ## Existing-Host Bootstrap
 
-The setup helper gains a separate, explicit host-bootstrap action. Its normal
-mode remains read-only validation, and `--apply` remains the first Kamal
-deployment. The bootstrap action:
+The setup helper gains the explicit action
+`bin/setup-kamal --bootstrap-host`. Its normal mode remains read-only
+validation, and `--apply` remains the first Kamal deployment. Unexpected
+arguments remain errors. The bootstrap action:
 
 1. Connects to the configured existing host as root.
-2. Installs Docker only if it is absent, then enables and starts it.
-3. Refuses unexpected storage objects such as symlinks at the managed paths.
-4. Creates `/srv/bootstrap`, `/srv/apps`,
+2. Applies the same separate-filesystem check and exact root-disk opt-in as
+   deployment preflight.
+3. Verifies `/etc/os-release` identifies Ubuntu 22.04 and that `apt-get` and
+   `systemctl` are available. Other operating systems fail before mutation.
+4. Refuses unexpected storage objects such as symlinks at the managed paths.
+5. If the `docker` command is absent, runs `apt-get update` followed by a
+   noninteractive `apt-get install -y docker.io`; otherwise it does not invoke
+   the package manager. It then runs `systemctl enable --now docker` and
+   verifies `docker info`.
+6. Creates `/srv/bootstrap`, `/srv/apps`,
    `/srv/apps/website/shared/db`, and `/srv/backups/website`.
-5. Keeps `/srv/apps` root-owned and assigns the application storage tree to
+7. Keeps `/srv/apps` root-owned and assigns the application storage tree to
    UID/GID `1000:1000`.
-6. Writes `/srv/bootstrap/.layout-ready` only after all preceding checks pass.
+8. Writes `/srv/bootstrap/.layout-ready` only after all preceding checks pass.
 
-The action is idempotent: rerunning it verifies and repairs the intended
-directory modes and ownership without removing application data. It does not
-partition the root disk, create a loop device, attach a Hetzner volume, change
-DNS, open the provider firewall, displace ingress, deploy the application, or
-create an off-host backup.
+The managed layout is exact:
+
+| Path | Type | Mode | Owner |
+|---|---|---:|---|
+| `/srv/bootstrap` | directory | `0755` | `root:root` |
+| `/srv/bootstrap/.layout-ready` | regular file | `0644` | `root:root` |
+| `/srv/apps` | directory | `0755` | `root:root` |
+| `/srv/apps/website` | directory | `0750` | `1000:1000` |
+| `/srv/apps/website/shared` | directory | `0750` | `1000:1000` |
+| `/srv/apps/website/shared/db` | directory | `0750` | `1000:1000` |
+| `/srv/backups` | directory | `0755` | `root:root` |
+| `/srv/backups/website` | directory | `0750` | `root:root` |
+
+Every managed path must either be absent or have the listed type. Symlinks and
+non-directory objects are rejected; the marker must be a regular,
+non-symlinked file. Existing directory contents are preserved. The action is
+idempotent: rerunning it repairs only the listed modes and ownership without
+removing application data. It does not partition the root disk, create a loop
+device, attach a Hetzner volume, change DNS, open the provider firewall,
+displace ingress, deploy the application, or create an off-host backup.
 
 The bootstrap action is allowed to initialize root-disk `/srv` only when
 `ALLOW_ROOT_DISK_STORAGE=1` is present. Without that opt-in, it requires an
@@ -86,7 +109,8 @@ regenerating or overwriting its secrets.
 The guided sequence is:
 
 1. Run the setup helper in validation mode.
-2. If the host layout is absent, run its explicit host-bootstrap action.
+2. If the host layout is absent, run
+   `bin/setup-kamal --bootstrap-host`.
 3. Rerun validation and resolve any firewall or foreign-ingress failure.
 4. Point `williamneal.dev` DNS at the existing server and verify public
    resolution.
