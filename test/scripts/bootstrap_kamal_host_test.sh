@@ -193,39 +193,95 @@ printf 'python3:%s\n' "$*" >> "$EVENT_LOG"
 /bin/cat > "$MOCK_DIR/layout-helper.py"
 "$REAL_PYTHON" -m py_compile "$MOCK_DIR/layout-helper.py"
 
+[[ $1 == - && $2 == /srv && $4 == 0 && $5 == 0 && $6 == 1000 && $7 == 1000 ]] ||
+  exit 64
+app_name=$3
+
 if [[ ${FAILURE:-} == symlink_swap ]]; then
   /bin/mkdir -p "$MOCK_DIR/remote-srv/apps"
   /bin/ln -s "$MOCK_DIR/outside-target" \
     "$MOCK_DIR/remote-srv/apps/website"
   printf '%s\n' swapped > "$MOCK_DIR/swap-attempted"
-  echo 'error=managed_path_invalid' >&2
-  exit 37
 fi
 
-case "${FAILURE:-}" in
-  layout_install|layout_mode|layout_owner)
-    exit 34
-    ;;
-  temp_marker|temp_marker_mode|marker_move)
-    printf '%s\n' .layout-ready.tmp.fake > "$MOCK_DIR/temp-marker"
-    : > "$MOCK_DIR/temp-marker"
-    exit 35
-    ;;
-esac
-
-cat > "$MOCK_DIR/metadata" <<'METADATA'
-/srv/bootstrap|755|0:0
-/srv/apps|755|0:0
-/srv/apps/website|750|1000:1000
-/srv/apps/website/shared|750|1000:1000
-/srv/apps/website/shared/db|750|1000:1000
-/srv/backups|755|0:0
-/srv/backups/website|750|0:0
-/srv/bootstrap/.layout-ready|644|0:0
-METADATA
-printf '%s\n' ready > "$MOCK_DIR/marker"
-: > "$MOCK_DIR/temp-marker"
+exec "$REAL_PYTHON" "$PYTHON_RUNNER" \
+  "$MOCK_DIR/layout-helper.py" "${FAILURE:-}" \
+  "$MOCK_DIR/remote-srv" "$app_name" \
+  "$TEST_UID" "$TEST_GID" "$TEST_UID" "$TEST_GID"
 PYTHON
+
+cat > "$temp_dir/python-runner.py" <<'PYTHON_RUNNER'
+import os
+import stat
+import sys
+
+helper_path = sys.argv[1]
+failure = sys.argv[2]
+helper_arguments = sys.argv[3:]
+
+real_mkdir = os.mkdir
+real_open = os.open
+real_fchmod = os.fchmod
+real_fchown = os.fchown
+real_fstat = os.fstat
+real_rename = os.rename
+real_fsync = os.fsync
+
+
+def injected_mkdir(*args, **kwargs):
+    if failure == "layout_install":
+        raise OSError("injected mkdir failure")
+    return real_mkdir(*args, **kwargs)
+
+
+def injected_open(path, flags, *args, **kwargs):
+    if (
+        failure == "temp_marker"
+        and isinstance(path, str)
+        and path.startswith(".layout-ready.tmp.")
+    ):
+        raise OSError("injected marker open failure")
+    return real_open(path, flags, *args, **kwargs)
+
+
+def injected_fchmod(fd, mode):
+    if failure == "layout_mode" and mode in (0o750, 0o755):
+        return real_fchmod(fd, 0o700)
+    if failure == "temp_marker_mode" and mode == 0o644:
+        return real_fchmod(fd, 0o600)
+    return real_fchmod(fd, mode)
+
+
+def injected_fchown(fd, uid, gid):
+    if failure == "layout_owner":
+        raise OSError("injected fchown failure")
+    return real_fchown(fd, uid, gid)
+
+
+def injected_rename(*args, **kwargs):
+    if failure == "marker_move":
+        raise OSError("injected rename failure")
+    return real_rename(*args, **kwargs)
+
+
+def injected_fsync(fd):
+    if failure == "directory_fsync" and stat.S_ISDIR(real_fstat(fd).st_mode):
+        raise OSError("injected directory fsync failure")
+    return real_fsync(fd)
+
+
+os.mkdir = injected_mkdir
+os.open = injected_open
+os.fchmod = injected_fchmod
+os.fchown = injected_fchown
+os.rename = injected_rename
+os.fsync = injected_fsync
+
+sys.argv = [helper_path, *helper_arguments]
+with open(helper_path, "rb") as helper_file:
+    helper_code = compile(helper_file.read(), helper_path, "exec")
+exec(helper_code, {"__name__": "__main__", "__file__": helper_path})
+PYTHON_RUNNER
 
 cat > "$temp_dir/remote-bin/install" <<'INSTALL'
 #!/usr/bin/env bash
@@ -405,6 +461,9 @@ run_remote_preserving_host() {
     TEST_REGISTRY_SECRET=registry-secret-should-not-appear
     TEST_MASTER_SECRET=master-secret-should-not-appear
     REAL_PYTHON="$real_python"
+    PYTHON_RUNNER="$temp_dir/python-runner.py"
+    TEST_UID="$(id -u)"
+    TEST_GID="$(id -g)"
   )
 
   if [[ $flag == __unset__ ]]; then
@@ -429,7 +488,18 @@ assert_no_mutation() {
 }
 
 assert_marker_absent() {
-  [[ ! -s $temp_dir/marker ]] || fail "failure published the ready marker"
+  local marker="$temp_dir/remote-srv/bootstrap/.layout-ready"
+  [[ ! -e $marker && ! -L $marker ]] ||
+    fail "failure published the ready marker"
+}
+
+assert_private_markers_absent() {
+  local bootstrap="$temp_dir/remote-srv/bootstrap"
+  if [[ -d $bootstrap ]] &&
+    find "$bootstrap" -name '.layout-ready.tmp.*' -print -quit |
+      grep -q .; then
+    fail "failure left a private temp marker"
+  fi
 }
 
 # Local validation happens before SSH.
@@ -620,11 +690,10 @@ assert_contains 'docker:info' "$temp_dir/events"
 
 # No first-run failure may publish readiness.
 for failure in package_update package_install systemctl docker layout_install layout_mode layout_owner \
-  temp_marker temp_marker_mode marker_move; do
+  temp_marker temp_marker_mode marker_move directory_fsync; do
   assert_failed_with "failure-$failure" "" __unset__ FAILURE="$failure"
   assert_marker_absent
-  [[ ! -s $temp_dir/temp-marker ]] ||
-    fail "$failure left a private temp marker"
+  assert_private_markers_absent
 done
 
 # A package-time symlink swap must not reach or alter the outside target.
@@ -646,34 +715,51 @@ outside_mode_after=$(stat -f '%Lp' "$temp_dir/outside-target" 2>/dev/null ||
 [[ $outside_mode_after == "$outside_mode_before" ]] ||
   fail "descriptor helper changed outside-target mode"
 assert_marker_absent
-[[ ! -s $temp_dir/temp-marker ]] ||
-  fail "symlink swap left a private temp marker"
+assert_private_markers_absent
 
-# Successful layout is exact, and both runs preserve modeled content inside shared.
+# Successful layout is exact, and both runs preserve real content inside shared.
 reset_host
-printf '%s\n' '/srv/apps/website/shared/sentinel|keep-me' > "$temp_dir/content"
+/bin/mkdir -p "$temp_dir/remote-srv/apps/website/shared"
+printf '%s\n' keep-me > "$temp_dir/remote-srv/apps/website/shared/sentinel"
 run_remote_preserving_host first-success __unset__
-expected_metadata="$temp_dir/expected-metadata"
-cat > "$expected_metadata" <<'METADATA'
-/srv/bootstrap|755|0:0
-/srv/apps|755|0:0
-/srv/apps/website|750|1000:1000
-/srv/apps/website/shared|750|1000:1000
-/srv/apps/website/shared/db|750|1000:1000
-/srv/backups|755|0:0
-/srv/backups/website|750|0:0
-/srv/bootstrap/.layout-ready|644|0:0
-METADATA
-diff -u "$expected_metadata" "$temp_dir/metadata"
-[[ -s $temp_dir/marker ]] || fail "success did not publish the ready marker"
+
+assert_layout() {
+  local relative_path=$1 expected_mode=$2
+  local actual_path="$temp_dir/remote-srv/$relative_path"
+  local actual_mode actual_owner expected_owner
+
+  actual_mode=$(stat -f '%Lp' "$actual_path" 2>/dev/null ||
+    stat -c '%a' "$actual_path")
+  actual_owner=$(stat -f '%u:%g' "$actual_path" 2>/dev/null ||
+    stat -c '%u:%g' "$actual_path")
+  expected_owner="$(id -u):$(id -g)"
+  [[ $actual_mode == "$expected_mode" ]] ||
+    fail "$relative_path mode was $actual_mode, expected $expected_mode"
+  [[ $actual_owner == "$expected_owner" ]] ||
+    fail "$relative_path owner was $actual_owner, expected $expected_owner"
+}
+
+assert_layout bootstrap 755
+assert_layout apps 755
+assert_layout apps/website 750
+assert_layout apps/website/shared 750
+assert_layout apps/website/shared/db 750
+assert_layout backups 755
+assert_layout backups/website 750
+assert_layout bootstrap/.layout-ready 644
+[[ -f $temp_dir/remote-srv/bootstrap/.layout-ready ]] ||
+  fail "success did not publish the ready marker"
 assert_contains 'host_bootstrap=ready' "$temp_dir/first-success.output"
 assert_contains 'next=bin/setup-kamal' "$temp_dir/first-success.output"
-assert_contains '/srv/apps/website/shared/sentinel|keep-me' "$temp_dir/content"
+assert_contains keep-me \
+  "$temp_dir/remote-srv/apps/website/shared/sentinel"
+assert_contains 'python3:- /srv website 0 0 1000 1000' "$temp_dir/events"
 
 : > "$temp_dir/events"
 run_remote_preserving_host second-success __unset__
-assert_contains '/srv/apps/website/shared/sentinel|keep-me' "$temp_dir/content"
-diff -u "$expected_metadata" "$temp_dir/metadata"
+assert_contains keep-me \
+  "$temp_dir/remote-srv/apps/website/shared/sentinel"
+assert_layout bootstrap/.layout-ready 644
 assert_not_contains 'apt-get:' "$temp_dir/events"
 assert_contains 'host_bootstrap=ready' "$temp_dir/second-success.output"
 
@@ -687,6 +773,10 @@ assert_not_contains 'resolv' "$temp_dir/capture.stdin"
 assert_not_contains 'hostname' "$temp_dir/capture.stdin"
 assert_not_contains 'kamal deploy' "$temp_dir/capture.stdin"
 assert_not_contains 'bin/deploy' "$temp_dir/capture.stdin"
+# shellcheck disable=SC2016
+grep -Fq 'python3 - /srv "$app_name" 0 0 1000 1000' \
+  "$temp_dir/capture.stdin" ||
+  fail "production helper call does not pin /srv and exact owner pairs"
 grep -Fq 'os.O_DIRECTORY' "$temp_dir/capture.stdin" ||
   fail "descriptor helper does not require directories"
 grep -Fq 'os.O_NOFOLLOW' "$temp_dir/capture.stdin" ||

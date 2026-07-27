@@ -94,7 +94,7 @@ fi
 systemctl enable --now docker
 docker info >/dev/null
 
-python3 - "$app_name" <<'PYTHON'
+python3 - /srv "$app_name" 0 0 1000 1000 <<'PYTHON'
 import os
 import secrets
 import stat
@@ -116,6 +116,8 @@ attached_directories = []
 bootstrap_fd = None
 marker_fd = None
 marker_temp = None
+marker_published = False
+bootstrap_complete = False
 
 
 def open_directory(parent_fd, name, mode, uid, gid):
@@ -179,24 +181,36 @@ def validate_existing_marker(parent_fd):
 
 
 try:
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 7:
         reject("invalid_bootstrap_arguments")
-    app_name = sys.argv[1]
+    runtime_root = sys.argv[1]
+    app_name = sys.argv[2]
+    root_uid, root_gid, app_uid, app_gid = map(int, sys.argv[3:])
 
     try:
-        srv_fd = os.open("/srv", directory_flags)
+        srv_fd = os.open(runtime_root, directory_flags)
     except OSError:
         reject("managed_path_invalid")
     opened_fds.append(srv_fd)
 
-    bootstrap_fd = open_directory(srv_fd, "bootstrap", 0o755, 0, 0)
+    bootstrap_fd = open_directory(
+        srv_fd, "bootstrap", 0o755, root_uid, root_gid
+    )
     validate_existing_marker(bootstrap_fd)
-    apps_fd = open_directory(srv_fd, "apps", 0o755, 0, 0)
-    backups_fd = open_directory(srv_fd, "backups", 0o755, 0, 0)
-    app_fd = open_directory(apps_fd, app_name, 0o750, 1000, 1000)
-    shared_fd = open_directory(app_fd, "shared", 0o750, 1000, 1000)
-    open_directory(shared_fd, "db", 0o750, 1000, 1000)
-    open_directory(backups_fd, app_name, 0o750, 0, 0)
+    apps_fd = open_directory(srv_fd, "apps", 0o755, root_uid, root_gid)
+    backups_fd = open_directory(
+        srv_fd, "backups", 0o755, root_uid, root_gid
+    )
+    app_fd = open_directory(
+        apps_fd, app_name, 0o750, app_uid, app_gid
+    )
+    shared_fd = open_directory(
+        app_fd, "shared", 0o750, app_uid, app_gid
+    )
+    open_directory(shared_fd, "db", 0o750, app_uid, app_gid)
+    open_directory(
+        backups_fd, app_name, 0o750, root_uid, root_gid
+    )
     verify_attached_directories()
 
     marker_temp = f".layout-ready.tmp.{os.getpid()}.{secrets.token_hex(8)}"
@@ -204,14 +218,17 @@ try:
     marker_fd = os.open(
         marker_temp, marker_flags, 0o600, dir_fd=bootstrap_fd
     )
-    os.fchown(marker_fd, 0, 0)
+    os.fchown(marker_fd, root_uid, root_gid)
     os.fchmod(marker_fd, 0o644)
     marker_details = os.fstat(marker_fd)
     if not stat.S_ISREG(marker_details.st_mode):
         reject("layout_marker_invalid")
     if stat.S_IMODE(marker_details.st_mode) != 0o644:
         reject("layout_marker_mode_invalid")
-    if (marker_details.st_uid, marker_details.st_gid) != (0, 0):
+    if (marker_details.st_uid, marker_details.st_gid) != (
+        root_uid,
+        root_gid,
+    ):
         reject("layout_marker_owner_invalid")
     os.fsync(marker_fd)
     os.close(marker_fd)
@@ -225,7 +242,9 @@ try:
         dst_dir_fd=bootstrap_fd,
     )
     marker_temp = None
+    marker_published = True
     os.fsync(bootstrap_fd)
+    bootstrap_complete = True
 except BootstrapFailure as error:
     print(f"error={error.code}", file=sys.stderr)
     sys.exit(1)
@@ -239,6 +258,16 @@ finally:
         try:
             os.unlink(marker_temp, dir_fd=bootstrap_fd)
         except FileNotFoundError:
+            pass
+    if (
+        marker_published
+        and not bootstrap_complete
+        and bootstrap_fd is not None
+    ):
+        try:
+            os.unlink(".layout-ready", dir_fd=bootstrap_fd)
+            os.fsync(bootstrap_fd)
+        except OSError:
             pass
     for descriptor in reversed(opened_fds):
         try:
