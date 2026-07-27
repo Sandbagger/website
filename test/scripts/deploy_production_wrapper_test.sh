@@ -62,6 +62,8 @@ assert_rejected_option --config-file long-c --config-file config/other.yml
 assert_rejected_option \
   --config-file=config/other.yml value-c --config-file=config/other.yml
 assert_rejected_option -H short-hooks -H
+assert_rejected_option -H=true value-short-hooks -H=true
+assert_rejected_option -Hfalse attached-short-hooks -Hfalse
 assert_rejected_option --skip-hooks long-hooks --skip-hooks
 assert_rejected_option --skip-hooks=true value-hooks --skip-hooks=true
 

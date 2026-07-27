@@ -18,7 +18,7 @@ for deploy_wrapper_argument in "$@"; do
   case "$deploy_wrapper_argument" in
     -d|-d?*|--destination|--destination=*|\
     -c|-c?*|--config-file|--config-file=*|\
-    -H|--skip-hooks|--skip-hooks=*)
+    -H|-H?*|--skip-hooks|--skip-hooks=*)
       printf 'error=unsupported_kamal_option option=%s\n' \
         "$deploy_wrapper_argument" >&2
       exit 1
