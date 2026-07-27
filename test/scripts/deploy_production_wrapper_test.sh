@@ -62,6 +62,10 @@ assert_rejected_option -cconfig/other.yml attached-c -cconfig/other.yml
 assert_rejected_option --config-file long-c --config-file config/other.yml
 assert_rejected_option \
   --config-file=config/other.yml value-c --config-file=config/other.yml
+assert_rejected_option --config_file underscore-c --config_file config/other.yml
+assert_rejected_option \
+  --config_file=config/other.yml underscore-value-c \
+  --config_file=config/other.yml
 assert_rejected_option -vc bundled-c -vc config/other.yml
 assert_rejected_option -qvcconfig/other.yml bundled-qvc -qvcconfig/other.yml
 assert_rejected_option -H short-hooks -H
@@ -71,6 +75,11 @@ assert_rejected_option -vH bundled-hooks -vH
 assert_rejected_option -Hv reverse-bundled-hooks -Hv
 assert_rejected_option --skip-hooks long-hooks --skip-hooks
 assert_rejected_option --skip-hooks=true value-hooks --skip-hooks=true
+assert_rejected_option --skip_hooks underscore-hooks --skip_hooks
+assert_rejected_option \
+  --skip_hooks=true underscore-value-hooks --skip_hooks=true
+assert_rejected_option \
+  --skip_hooks underscore-separated-hooks --skip_hooks true
 assert_rejected_option -xv ambiguous-bundle -xv
 
 cat > "$temp_dir/adversarial-routing.env" <<'ENV'
