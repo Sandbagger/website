@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Prepare an existing Ubuntu 22.04 host for durable Kamal application storage.
+set -euo pipefail
+
+if [[ -z "${KAMAL_HOST:-}" ]]; then
+  echo 'error=missing_kamal_host' >&2
+  exit 1
+fi
+
+if [[ -z "${APP_SHARED_ROOT:-}" ]]; then
+  echo 'error=missing_app_shared_root' >&2
+  exit 1
+fi
+
+if [[ ! "$APP_SHARED_ROOT" =~ ^/srv/apps/[^/]+/shared$ ]]; then
+  echo 'error=invalid_app_shared_root' >&2
+  exit 1
+fi
+
+app_name=${APP_SHARED_ROOT#/srv/apps/}
+app_name=${app_name%/shared}
+if [[ "$app_name" == . || "$app_name" == .. ]]; then
+  echo 'error=invalid_app_shared_root' >&2
+  exit 1
+fi
+
+allow_root_disk_storage=0
+if [[ "${ALLOW_ROOT_DISK_STORAGE:-}" == 1 ]]; then
+  allow_root_disk_storage=1
+fi
+
+ssh "root@$KAMAL_HOST" bash -s -- \
+  "$APP_SHARED_ROOT" "$allow_root_disk_storage" <<'REMOTE'
+set -euo pipefail
+
+fail() {
+  echo "error=$1" >&2
+  exit 1
+}
+
+app_shared_root=$1
+allow_root_disk_storage=$2
+app_root=${app_shared_root%/shared}
+app_name=${app_root##*/}
+backup_root=/srv/backups
+app_backup_root="$backup_root/$app_name"
+layout_marker=/srv/bootstrap/.layout-ready
+
+srv_source=$(findmnt -n -o SOURCE --target /srv) ||
+  fail srv_mount_source_unavailable
+root_source=$(findmnt -n -o SOURCE --target /) ||
+  fail root_mount_source_unavailable
+if [[ "$srv_source" == "$root_source" ]]; then
+  [[ "$allow_root_disk_storage" == 1 ]] ||
+    fail srv_not_separate_filesystem
+  echo 'warning=root_disk_storage_enabled data_will_not_survive_server_loss' >&2
+fi
+
+source /etc/os-release || fail unsupported_host_os
+[[ "${ID:-}" == ubuntu && "${VERSION_ID:-}" == 22.04 ]] ||
+  fail unsupported_host_os
+command -v apt-get >/dev/null 2>&1 || fail host_command_missing
+command -v systemctl >/dev/null 2>&1 || fail host_command_missing
+
+managed_directories=(
+  /srv/bootstrap
+  /srv/apps
+  "$app_root"
+  "$app_shared_root"
+  "$app_shared_root/db"
+  "$backup_root"
+  "$app_backup_root"
+)
+
+for path in "${managed_directories[@]}"; do
+  test -L "$path" && fail managed_path_invalid
+  if test -e "$path"; then
+    test -d "$path" || fail managed_path_invalid
+  fi
+done
+
+test -L "$layout_marker" && fail layout_marker_invalid
+if test -e "$layout_marker"; then
+  test -f "$layout_marker" || fail layout_marker_invalid
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+fi
+
+systemctl enable --now docker
+docker info >/dev/null
+
+install -d -m 0755 -o root -g root /srv/bootstrap
+install -d -m 0755 -o root -g root /srv/apps
+install -d -m 0750 -o 1000 -g 1000 "$app_root"
+install -d -m 0750 -o 1000 -g 1000 "$app_shared_root"
+install -d -m 0750 -o 1000 -g 1000 "$app_shared_root/db"
+install -d -m 0755 -o root -g root "$backup_root"
+install -d -m 0750 -o root -g root "$app_backup_root"
+
+verify_directory() {
+  local path=$1 expected_mode=$2 expected_owner=$3
+
+  test -d "$path" || fail managed_path_invalid
+  [[ $(stat -c '%a' -- "$path") == "$expected_mode" ]] ||
+    fail layout_mode_invalid
+  [[ $(stat -c '%u:%g' -- "$path") == "$expected_owner" ]] ||
+    fail layout_owner_invalid
+}
+
+verify_directory /srv/bootstrap 755 0:0
+verify_directory /srv/apps 755 0:0
+verify_directory "$app_root" 750 1000:1000
+verify_directory "$app_shared_root" 750 1000:1000
+verify_directory "$app_shared_root/db" 750 1000:1000
+verify_directory "$backup_root" 755 0:0
+verify_directory "$app_backup_root" 750 0:0
+
+marker_temp=$(mktemp /srv/bootstrap/.layout-ready.tmp.XXXXXX)
+test -L "$marker_temp" && fail layout_marker_invalid
+test -f "$marker_temp" || fail layout_marker_invalid
+install -m 0644 -o root -g root /dev/null "$marker_temp"
+test -L "$marker_temp" && fail layout_marker_invalid
+test -f "$marker_temp" || fail layout_marker_invalid
+[[ $(stat -c '%a' -- "$marker_temp") == 644 ]] ||
+  fail layout_marker_mode_invalid
+[[ $(stat -c '%u:%g' -- "$marker_temp") == 0:0 ]] ||
+  fail layout_marker_owner_invalid
+mv -f -- "$marker_temp" "$layout_marker"
+
+echo 'host_bootstrap=ready'
+echo 'next=bin/setup-kamal'
+REMOTE
