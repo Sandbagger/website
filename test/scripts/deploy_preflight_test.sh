@@ -106,10 +106,12 @@ run_preflight() {
   PATH="$temp_dir:$PATH" \
   KAMAL_HOST=shared-kamal-01 \
   APP_SHARED_ROOT=/srv/apps/website/shared \
+  KAMAL_REGISTRY_PASSWORD=registry-secret-should-not-appear \
+  RAILS_MASTER_KEY=rails-secret-should-not-appear \
   "$project_root/bin/deploy-preflight"
 }
 
-run_preflight
+run_preflight >"$temp_dir/capture.out" 2>&1
 
 run_remote_failure_case() {
   local state=$1
@@ -135,6 +137,7 @@ run_remote_failure_case() {
 
 run_remote_failure_case missing_layout bootstrap_layout_not_ready
 run_remote_failure_case same_mount srv_not_separate_filesystem
+ALLOW_ROOT_DISK_STORAGE=true run_remote_failure_case same_mount srv_not_separate_filesystem
 run_remote_failure_case apps_owner_bad apps_owner_invalid
 run_remote_failure_case app_owner_bad app_shared_root_owner_invalid
 run_remote_failure_case db_owner_bad app_shared_db_owner_invalid
@@ -146,6 +149,9 @@ run_remote_failure_case proxy_missing_port kamal_proxy_ports_invalid
 
 grep -Fx 'root@shared-kamal-01' "$temp_dir/ssh-args"
 grep -Fx -- '/srv/apps/website/shared' "$temp_dir/ssh-args"
+test "$(sed -n '5p' "$temp_dir/ssh-args")" = '/srv/apps/website/shared'
+test "$(sed -n '6p' "$temp_dir/ssh-args")" = '0'
+test "$(sed -n '7p' "$temp_dir/ssh-args")" = ''
 grep -F 'test -f /srv/bootstrap/.layout-ready || fail bootstrap_layout_not_ready' "$temp_dir/ssh-stdin"
 grep -F 'findmnt -n -o SOURCE --target /srv' "$temp_dir/ssh-stdin"
 grep -F 'findmnt -n -o SOURCE --target /' "$temp_dir/ssh-stdin"
@@ -163,6 +169,79 @@ grep -F 'fail foreign_ingress_listener' "$temp_dir/ssh-stdin"
 grep -F 'fail foreign_ingress_container' "$temp_dir/ssh-stdin"
 grep -F 'fail kamal_proxy_ports_invalid' "$temp_dir/ssh-stdin"
 grep -F "[[ -n \"\$ingress_listeners\" && -z \"\$ingress_containers\" ]] && fail foreign_ingress_listener" "$temp_dir/ssh-stdin"
+
+if grep -Fq 'registry-secret-should-not-appear' \
+  "$temp_dir/ssh-args" "$temp_dir/ssh-stdin" "$temp_dir/capture.out"; then
+  echo 'preflight forwarded the registry secret' >&2
+  exit 1
+fi
+
+if grep -Fq 'rails-secret-should-not-appear' \
+  "$temp_dir/ssh-args" "$temp_dir/ssh-stdin" "$temp_dir/capture.out"; then
+  echo 'preflight forwarded the Rails secret' >&2
+  exit 1
+fi
+
+ALLOW_ROOT_DISK_STORAGE=1 run_preflight >"$temp_dir/capture-allowed.out" 2>&1
+test "$(sed -n '5p' "$temp_dir/ssh-args")" = '/srv/apps/website/shared'
+test "$(sed -n '6p' "$temp_dir/ssh-args")" = '1'
+test "$(sed -n '7p' "$temp_dir/ssh-args")" = ''
+
+if grep -Fq 'registry-secret-should-not-appear' \
+  "$temp_dir/ssh-args" "$temp_dir/ssh-stdin" "$temp_dir/capture-allowed.out"; then
+  echo 'preflight forwarded the registry secret' >&2
+  exit 1
+fi
+
+if grep -Fq 'rails-secret-should-not-appear' \
+  "$temp_dir/ssh-args" "$temp_dir/ssh-stdin" "$temp_dir/capture-allowed.out"; then
+  echo 'preflight forwarded the Rails secret' >&2
+  exit 1
+fi
+
+if ! SSH_EXECUTE_REMOTE=1 \
+  REMOTE_BASH_ENV="$temp_dir/remote-bash-env" \
+  PREFLIGHT_STATE=same_mount \
+  PATH="$temp_dir:$temp_dir/remote-bin:$PATH" \
+  KAMAL_HOST=shared-kamal-01 \
+  APP_SHARED_ROOT=/srv/apps/website/shared \
+  ALLOW_ROOT_DISK_STORAGE=1 \
+  KAMAL_REGISTRY_PASSWORD=registry-secret-should-not-appear \
+  RAILS_MASTER_KEY=rails-secret-should-not-appear \
+  "$project_root/bin/deploy-preflight" \
+  >"$temp_dir/root-disk.out" 2>"$temp_dir/root-disk.err"; then
+  echo 'expected root-disk opt-in to pass' >&2
+  exit 1
+fi
+test ! -s "$temp_dir/root-disk.out"
+test "$(cat "$temp_dir/root-disk.err")" = \
+  'warning=root_disk_storage_enabled data_will_not_survive_server_loss'
+
+if grep -Fq 'registry-secret-should-not-appear' \
+  "$temp_dir/root-disk.out" "$temp_dir/root-disk.err"; then
+  echo 'preflight exposed the registry secret' >&2
+  exit 1
+fi
+
+if grep -Fq 'rails-secret-should-not-appear' \
+  "$temp_dir/root-disk.out" "$temp_dir/root-disk.err"; then
+  echo 'preflight exposed the Rails secret' >&2
+  exit 1
+fi
+
+if ! env -u ALLOW_ROOT_DISK_STORAGE \
+  SSH_EXECUTE_REMOTE=1 \
+  REMOTE_BASH_ENV="$temp_dir/remote-bash-env" \
+  PATH="$temp_dir:$temp_dir/remote-bin:$PATH" \
+  KAMAL_HOST=shared-kamal-01 \
+  APP_SHARED_ROOT=/srv/apps/website/shared \
+  "$project_root/bin/deploy-preflight" \
+  >"$temp_dir/separate-disk.out" 2>"$temp_dir/separate-disk.err"; then
+  echo 'expected separate filesystem without opt-in to pass' >&2
+  exit 1
+fi
+test ! -s "$temp_dir/separate-disk.out"
+test ! -s "$temp_dir/separate-disk.err"
 
 rm -f "$temp_dir/ssh-args"
 

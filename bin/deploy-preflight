@@ -17,10 +17,16 @@ if [[ ! "$APP_SHARED_ROOT" =~ ^/srv/apps/[^/]+/shared$ ]]; then
   exit 1
 fi
 
+allow_root_disk_storage=0
+if [[ "${ALLOW_ROOT_DISK_STORAGE:-}" == '1' ]]; then
+  allow_root_disk_storage=1
+fi
+
 ssh_stderr=$(mktemp)
 trap 'rm -f "$ssh_stderr"' EXIT
 
-if ssh "root@$KAMAL_HOST" bash -s -- "$APP_SHARED_ROOT" 2>"$ssh_stderr" <<'REMOTE'
+if ssh "root@$KAMAL_HOST" bash -s -- \
+  "$APP_SHARED_ROOT" "$allow_root_disk_storage" 2>"$ssh_stderr" <<'REMOTE'
 set -euo pipefail
 
 fail() {
@@ -29,12 +35,16 @@ fail() {
 }
 
 app_shared_root="$1"
+allow_root_disk_storage="$2"
 
 test -f /srv/bootstrap/.layout-ready || fail bootstrap_layout_not_ready
 
 srv_source=$(findmnt -n -o SOURCE --target /srv) || fail srv_mount_source_unavailable
 root_source=$(findmnt -n -o SOURCE --target /) || fail root_mount_source_unavailable
-[[ "$srv_source" != "$root_source" ]] || fail srv_not_separate_filesystem
+if [[ "$srv_source" == "$root_source" ]]; then
+  [[ "$allow_root_disk_storage" == '1' ]] || fail srv_not_separate_filesystem
+  echo 'warning=root_disk_storage_enabled data_will_not_survive_server_loss' >&2
+fi
 
 test -L "$app_shared_root" && fail app_shared_root_symlink
 
@@ -68,7 +78,9 @@ if [[ -n "$ingress_containers" ]]; then
 fi
 REMOTE
 then
-  :
+  grep -Fx \
+    'warning=root_disk_storage_enabled data_will_not_survive_server_loss' \
+    "$ssh_stderr" >&2 || true
 else
   grep -E '^error=[a-z0-9_]+$' "$ssh_stderr" >&2 || true
   echo 'error=preflight_ssh_failed' >&2
