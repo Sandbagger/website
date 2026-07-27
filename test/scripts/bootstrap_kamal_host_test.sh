@@ -57,7 +57,7 @@ SSH
 
 cat > "$temp_dir/remote-bash-env" <<'BASH_ENV'
 managed_kind() {
-  local path=$1
+  local path=$1 actual_path
 
   if [[ ${INVALID_PATH:-} == "$path" ]]; then
     printf '%s\n' "${INVALID_KIND:-file}"
@@ -68,21 +68,19 @@ managed_kind() {
     if [[ ${MARKER_KIND:-} == symlink || ${MARKER_KIND:-} == file ||
       ${MARKER_KIND:-} == directory ]]; then
       printf '%s\n' "$MARKER_KIND"
-    elif [[ -s $MOCK_DIR/marker ]]; then
-      printf '%s\n' file
-    else
-      printf '%s\n' absent
+      return
     fi
-    return
   fi
 
-  if [[ -s $MOCK_DIR/temp-marker ]] && [[ $(<"$MOCK_DIR/temp-marker") == "$path" ]]; then
-    printf '%s\n' file
-    return
-  fi
-
-  if grep -Fq "$path|" "$MOCK_DIR/metadata"; then
+  actual_path="$MOCK_DIR/remote-srv${path#/srv}"
+  if [[ -L $actual_path ]]; then
+    printf '%s\n' symlink
+  elif [[ -d $actual_path ]]; then
     printf '%s\n' directory
+  elif [[ -f $actual_path ]]; then
+    printf '%s\n' file
+  elif [[ -e $actual_path ]]; then
+    printf '%s\n' other
   else
     printf '%s\n' absent
   fi
@@ -193,11 +191,13 @@ printf 'python3:%s\n' "$*" >> "$EVENT_LOG"
 /bin/cat > "$MOCK_DIR/layout-helper.py"
 "$REAL_PYTHON" -m py_compile "$MOCK_DIR/layout-helper.py"
 
-[[ $1 == - && $2 == /srv && $4 == 0 && $5 == 0 && $6 == 1000 && $7 == 1000 ]] ||
+[[ $1 == - && ( $2 == invalidate || $2 == configure ) &&
+  $3 == /srv && $5 == 0 && $6 == 0 && $7 == 1000 && $8 == 1000 ]] ||
   exit 64
-app_name=$3
+operation=$2
+app_name=$4
 
-if [[ ${FAILURE:-} == symlink_swap ]]; then
+if [[ ${FAILURE:-} == symlink_swap && $operation == configure ]]; then
   /bin/mkdir -p "$MOCK_DIR/remote-srv/apps"
   /bin/ln -s "$MOCK_DIR/outside-target" \
     "$MOCK_DIR/remote-srv/apps/website"
@@ -206,8 +206,8 @@ fi
 
 exec "$REAL_PYTHON" "$PYTHON_RUNNER" \
   "$MOCK_DIR/layout-helper.py" "${FAILURE:-}" \
-  "$MOCK_DIR/remote-srv" "$app_name" \
-  "$TEST_UID" "$TEST_GID" "$TEST_UID" "$TEST_GID"
+  "$operation" "$MOCK_DIR/remote-srv" "$app_name" \
+  0 0 1000 1000
 PYTHON
 
 cat > "$temp_dir/python-runner.py" <<'PYTHON_RUNNER'
@@ -226,6 +226,12 @@ real_fchown = os.fchown
 real_fstat = os.fstat
 real_rename = os.rename
 real_fsync = os.fsync
+test_uid = int(os.environ["TEST_UID"])
+test_gid = int(os.environ["TEST_GID"])
+runtime_root = helper_arguments[1]
+ownership_log = os.environ["OWNERSHIP_LOG"]
+requested_ownership = {}
+descriptor_paths = {}
 
 
 def injected_mkdir(*args, **kwargs):
@@ -241,7 +247,15 @@ def injected_open(path, flags, *args, **kwargs):
         and path.startswith(".layout-ready.tmp.")
     ):
         raise OSError("injected marker open failure")
-    return real_open(path, flags, *args, **kwargs)
+    descriptor = real_open(path, flags, *args, **kwargs)
+    parent_fd = kwargs.get("dir_fd")
+    if os.path.isabs(path):
+        descriptor_paths[descriptor] = path
+    elif parent_fd in descriptor_paths:
+        descriptor_paths[descriptor] = os.path.join(
+            descriptor_paths[parent_fd], path
+        )
+    return descriptor
 
 
 def injected_fchmod(fd, mode):
@@ -253,9 +267,30 @@ def injected_fchmod(fd, mode):
 
 
 def injected_fchown(fd, uid, gid):
+    details = real_fstat(fd)
+    requested_ownership[(details.st_dev, details.st_ino)] = (uid, gid)
+    descriptor_path = descriptor_paths.get(fd, f"/dev/fd/{fd}")
+    if descriptor_path.startswith(runtime_root):
+        logical_path = f"/srv{descriptor_path[len(runtime_root):]}"
+    else:
+        logical_path = descriptor_path
+    if os.path.basename(logical_path).startswith(".layout-ready.tmp."):
+        logical_path = "/srv/bootstrap/.layout-ready"
+    with open(ownership_log, "a", encoding="utf-8") as log_file:
+        log_file.write(f"{logical_path}|{uid}:{gid}\n")
     if failure == "layout_owner":
         raise OSError("injected fchown failure")
-    return real_fchown(fd, uid, gid)
+    return real_fchown(fd, test_uid, test_gid)
+
+
+def injected_fstat(fd):
+    details = real_fstat(fd)
+    requested = requested_ownership.get((details.st_dev, details.st_ino))
+    if requested is None:
+        return details
+    values = list(details)
+    values[4], values[5] = requested
+    return os.stat_result(values)
 
 
 def injected_rename(*args, **kwargs):
@@ -274,6 +309,7 @@ os.mkdir = injected_mkdir
 os.open = injected_open
 os.fchmod = injected_fchmod
 os.fchown = injected_fchown
+os.fstat = injected_fstat
 os.rename = injected_rename
 os.fsync = injected_fsync
 
@@ -283,161 +319,11 @@ with open(helper_path, "rb") as helper_file:
 exec(helper_code, {"__name__": "__main__", "__file__": helper_path})
 PYTHON_RUNNER
 
-cat > "$temp_dir/remote-bin/install" <<'INSTALL'
-#!/usr/bin/env bash
-set -euo pipefail
-
-directory=0
-mode=
-owner=
-group=
-args=("$@")
-index=0
-while (( index < ${#args[@]} )); do
-  case "${args[$index]}" in
-    -d)
-      directory=1
-      ;;
-    -m)
-      ((index += 1))
-      mode=${args[$index]#0}
-      ;;
-    -o)
-      ((index += 1))
-      owner=${args[$index]}
-      [[ $owner == root ]] && owner=0
-      ;;
-    -g)
-      ((index += 1))
-      group=${args[$index]}
-      [[ $group == root ]] && group=0
-      ;;
-  esac
-  ((index += 1))
-done
-
-target=${args[${#args[@]}-1]}
-printf 'install:%s\n' "$*" >> "$EVENT_LOG"
-
-if (( directory )); then
-  [[ ${FAILURE:-} != layout_install ]] || exit 34
-  grep -Fv "$target|" "$MOCK_DIR/metadata" > "$MOCK_DIR/metadata.next" || true
-  printf '%s|%s|%s:%s\n' "$target" "$mode" "$owner" "$group" >> "$MOCK_DIR/metadata.next"
-  /bin/mv "$MOCK_DIR/metadata.next" "$MOCK_DIR/metadata"
-else
-  [[ ${FAILURE:-} != temp_marker ]] || exit 35
-  if grep -Fq "$target|" "$MOCK_DIR/content"; then
-    grep -Fv "$target|" "$MOCK_DIR/content" > "$MOCK_DIR/content.next" || true
-    printf '%s|\n' "$target" >> "$MOCK_DIR/content.next"
-    /bin/mv "$MOCK_DIR/content.next" "$MOCK_DIR/content"
-  fi
-  grep -Fv "$target|" "$MOCK_DIR/metadata" > "$MOCK_DIR/metadata.next" || true
-  printf '%s|%s|%s:%s\n' "$target" "$mode" "$owner" "$group" >> "$MOCK_DIR/metadata.next"
-  /bin/mv "$MOCK_DIR/metadata.next" "$MOCK_DIR/metadata"
-fi
-INSTALL
-
-cat > "$temp_dir/remote-bin/stat" <<'STAT'
-#!/usr/bin/env bash
-set -euo pipefail
-
-format=$2
-target=${!#}
-record=$(grep -F "$target|" "$MOCK_DIR/metadata" | tail -n 1)
-mode=$(cut -d'|' -f2 <<<"$record")
-owner=$(cut -d'|' -f3 <<<"$record")
-
-if [[ ${FAILURE:-} == layout_mode && $target == "$APP_SHARED_ROOT" ]]; then
-  mode=755
-elif [[ ${FAILURE:-} == temp_marker_mode && $target == /srv/bootstrap/.layout-ready.tmp.mock ]]; then
-  mode=600
-fi
-
-if [[ ${FAILURE:-} == layout_owner && $target == "$APP_SHARED_ROOT" ]]; then
-  owner=0:0
-fi
-
-case "$format" in
-  %a) echo "$mode" ;;
-  %u:%g) echo "$owner" ;;
-  *) exit 64 ;;
-esac
-STAT
-
-cat > "$temp_dir/remote-bin/mktemp" <<'MKTEMP'
-#!/usr/bin/env bash
-set -euo pipefail
-target=/srv/bootstrap/.layout-ready.tmp.mock
-printf '%s\n' "$target" > "$MOCK_DIR/temp-marker"
-grep -Fv "$target|" "$MOCK_DIR/metadata" > "$MOCK_DIR/metadata.next" || true
-printf '%s|600|0:0\n' "$target" >> "$MOCK_DIR/metadata.next"
-/bin/mv "$MOCK_DIR/metadata.next" "$MOCK_DIR/metadata"
-echo "$target"
-MKTEMP
-
-cat > "$temp_dir/remote-bin/mv" <<'MV'
-#!/usr/bin/env bash
-set -euo pipefail
-printf 'mv:%s\n' "$*" >> "$EVENT_LOG"
-
-source_path=${@: -2:1}
-target_path=${@: -1}
-if [[ $target_path == /srv/bootstrap/.layout-ready ]]; then
-  [[ ${FAILURE:-} != marker_move ]] || exit 36
-  record=$(grep -F "$source_path|" "$MOCK_DIR/metadata" | tail -n 1)
-  grep -Fv "$source_path|" "$MOCK_DIR/metadata" > "$MOCK_DIR/metadata.next" || true
-  grep -Fv "$target_path|" "$MOCK_DIR/metadata.next" > "$MOCK_DIR/metadata.next2" || true
-  printf '%s|%s\n' "$target_path" "${record#*|}" >> "$MOCK_DIR/metadata.next2"
-  /bin/mv "$MOCK_DIR/metadata.next2" "$MOCK_DIR/metadata"
-  printf '%s\n' ready > "$MOCK_DIR/marker"
-  : > "$MOCK_DIR/temp-marker"
-else
-  /bin/mv "$source_path" "$target_path"
-fi
-MV
-
-cat > "$temp_dir/remote-bin/rm" <<'RM'
-#!/usr/bin/env bash
-set -euo pipefail
-target=${@: -1}
-sentinel=/srv/apps/website/shared/sentinel
-if [[ $sentinel == "$target" || $sentinel == "$target/"* ]]; then
-  grep -Fv "$sentinel|" "$MOCK_DIR/content" > "$MOCK_DIR/content.next" || true
-  /bin/mv "$MOCK_DIR/content.next" "$MOCK_DIR/content"
-fi
-RM
-
-cat > "$temp_dir/remote-bin/truncate" <<'TRUNCATE'
-#!/usr/bin/env bash
-set -euo pipefail
-target=${@: -1}
-if grep -Fq "$target|" "$MOCK_DIR/content"; then
-  grep -Fv "$target|" "$MOCK_DIR/content" > "$MOCK_DIR/content.next" || true
-  printf '%s|\n' "$target" >> "$MOCK_DIR/content.next"
-  /bin/mv "$MOCK_DIR/content.next" "$MOCK_DIR/content"
-fi
-TRUNCATE
-
-cat > "$temp_dir/remote-bin/chown" <<'CHOWN'
-#!/usr/bin/env bash
-echo 'unexpected chown' >&2
-exit 91
-CHOWN
-
-cat > "$temp_dir/remote-bin/chmod" <<'CHMOD'
-#!/usr/bin/env bash
-echo 'unexpected chmod' >&2
-exit 92
-CHMOD
-
 chmod +x "$temp_dir/ssh" "$temp_dir/remote-bin/"*
 
 reset_host() {
-  : > "$temp_dir/metadata"
-  : > "$temp_dir/marker"
-  : > "$temp_dir/temp-marker"
   : > "$temp_dir/events"
-  : > "$temp_dir/content"
+  : > "$temp_dir/ownership-log"
   /bin/rm -rf "$temp_dir/remote-srv" "$temp_dir/outside-target"
   /bin/mkdir -p "$temp_dir/remote-srv" "$temp_dir/outside-target"
   rm -f "$temp_dir/docker-installed"
@@ -464,6 +350,7 @@ run_remote_preserving_host() {
     PYTHON_RUNNER="$temp_dir/python-runner.py"
     TEST_UID="$(id -u)"
     TEST_GID="$(id -g)"
+    OWNERSHIP_LOG="$temp_dir/ownership-log"
   )
 
   if [[ $flag == __unset__ ]]; then
@@ -484,7 +371,7 @@ run_remote() {
 
 assert_no_mutation() {
   [[ ! -s $temp_dir/events ]] || fail "unexpected mutation: $(<"$temp_dir/events")"
-  [[ ! -s $temp_dir/marker ]] || fail "unexpected ready marker"
+  assert_marker_absent
 }
 
 assert_marker_absent() {
@@ -673,15 +560,21 @@ done
 
 # Docker installation and startup ordering.
 run_remote docker-absent __unset__
-[[ $(sed -n '1p' "$temp_dir/events") == 'apt-get::update' ]] ||
+[[ $(sed -n '1p' "$temp_dir/events") == \
+  'python3:- invalidate /srv website 0 0 1000 1000' ]] ||
+  fail "readiness invalidation was not first"
+[[ $(sed -n '2p' "$temp_dir/events") == 'apt-get::update' ]] ||
   fail "apt-get update was not first"
-[[ $(sed -n '2p' "$temp_dir/events") == \
+[[ $(sed -n '3p' "$temp_dir/events") == \
   'apt-get:noninteractive:install -y docker.io' ]] ||
   fail "docker.io install command was not second"
-[[ $(sed -n '3p' "$temp_dir/events") == 'systemctl:enable --now docker' ]] ||
+[[ $(sed -n '4p' "$temp_dir/events") == 'systemctl:enable --now docker' ]] ||
   fail "systemctl did not follow package installation"
-[[ $(sed -n '4p' "$temp_dir/events") == 'docker:info' ]] ||
+[[ $(sed -n '5p' "$temp_dir/events") == 'docker:info' ]] ||
   fail "docker info did not follow systemctl"
+[[ $(sed -n '6p' "$temp_dir/events") == \
+  'python3:- configure /srv website 0 0 1000 1000' ]] ||
+  fail "layout configuration did not follow Docker verification"
 
 run_remote docker-present __unset__ DOCKER_PRESENT=1
 assert_not_contains 'apt-get:' "$temp_dir/events"
@@ -753,7 +646,21 @@ assert_contains 'host_bootstrap=ready' "$temp_dir/first-success.output"
 assert_contains 'next=bin/setup-kamal' "$temp_dir/first-success.output"
 assert_contains keep-me \
   "$temp_dir/remote-srv/apps/website/shared/sentinel"
-assert_contains 'python3:- /srv website 0 0 1000 1000' "$temp_dir/events"
+expected_ownership="$temp_dir/expected-ownership"
+cat > "$expected_ownership" <<'OWNERSHIP'
+/srv/bootstrap|0:0
+/srv/apps|0:0
+/srv/backups|0:0
+/srv/apps/website|1000:1000
+/srv/apps/website/shared|1000:1000
+/srv/apps/website/shared/db|1000:1000
+/srv/backups/website|0:0
+/srv/bootstrap/.layout-ready|0:0
+OWNERSHIP
+diff -u "$expected_ownership" "$temp_dir/ownership-log"
+assert_contains \
+  'python3:- configure /srv website 0 0 1000 1000' \
+  "$temp_dir/events"
 
 : > "$temp_dir/events"
 run_remote_preserving_host second-success __unset__
@@ -762,6 +669,39 @@ assert_contains keep-me \
 assert_layout bootstrap/.layout-ready 644
 assert_not_contains 'apt-get:' "$temp_dir/events"
 assert_contains 'host_bootstrap=ready' "$temp_dir/second-success.output"
+
+# Every failed rerun invalidates stale readiness without touching app data.
+rerun_failures=(
+  package_update
+  package_install
+  systemctl
+  docker
+  layout_install
+  layout_mode
+  layout_owner
+  temp_marker
+  temp_marker_mode
+  marker_move
+  directory_fsync
+)
+for failure in "${rerun_failures[@]}"; do
+  reset_host
+  /bin/mkdir -p "$temp_dir/remote-srv/apps/website/shared"
+  printf '%s\n' keep-rerun-data \
+    > "$temp_dir/remote-srv/apps/website/shared/sentinel"
+  run_remote_preserving_host "rerun-setup-$failure" __unset__
+  if [[ $failure == package_update || $failure == package_install ]]; then
+    rm -f "$temp_dir/docker-installed"
+  fi
+  if run_remote_preserving_host "rerun-failure-$failure" __unset__ \
+    FAILURE="$failure"; then
+    fail "expected $failure rerun to fail"
+  fi
+  assert_marker_absent
+  assert_private_markers_absent
+  assert_contains keep-rerun-data \
+    "$temp_dir/remote-srv/apps/website/shared/sentinel"
+done
 
 # Keep the script narrowly scoped.
 assert_not_contains 'ufw' "$temp_dir/capture.stdin"
@@ -774,9 +714,13 @@ assert_not_contains 'hostname' "$temp_dir/capture.stdin"
 assert_not_contains 'kamal deploy' "$temp_dir/capture.stdin"
 assert_not_contains 'bin/deploy' "$temp_dir/capture.stdin"
 # shellcheck disable=SC2016
-grep -Fq 'python3 - /srv "$app_name" 0 0 1000 1000' \
+grep -Fq 'run_layout_helper invalidate /srv "$app_name" 0 0 1000 1000' \
   "$temp_dir/capture.stdin" ||
-  fail "production helper call does not pin /srv and exact owner pairs"
+  fail "production invalidation call does not pin exact owner pairs"
+# shellcheck disable=SC2016
+grep -Fq 'run_layout_helper configure /srv "$app_name" 0 0 1000 1000' \
+  "$temp_dir/capture.stdin" ||
+  fail "production configuration call does not pin exact owner pairs"
 grep -Fq 'os.O_DIRECTORY' "$temp_dir/capture.stdin" ||
   fail "descriptor helper does not require directories"
 grep -Fq 'os.O_NOFOLLOW' "$temp_dir/capture.stdin" ||

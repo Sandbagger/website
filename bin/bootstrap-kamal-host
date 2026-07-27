@@ -86,15 +86,8 @@ if test -e "$layout_marker"; then
   test -f "$layout_marker" || fail layout_marker_invalid
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
-fi
-
-systemctl enable --now docker
-docker info >/dev/null
-
-python3 - /srv "$app_name" 0 0 1000 1000 <<'PYTHON'
+run_layout_helper() {
+  python3 - "$@" <<'PYTHON'
 import os
 import secrets
 import stat
@@ -181,17 +174,38 @@ def validate_existing_marker(parent_fd):
 
 
 try:
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 8:
         reject("invalid_bootstrap_arguments")
-    runtime_root = sys.argv[1]
-    app_name = sys.argv[2]
-    root_uid, root_gid, app_uid, app_gid = map(int, sys.argv[3:])
+    operation = sys.argv[1]
+    runtime_root = sys.argv[2]
+    app_name = sys.argv[3]
+    root_uid, root_gid, app_uid, app_gid = map(int, sys.argv[4:])
+    if operation not in ("invalidate", "configure"):
+        reject("invalid_bootstrap_arguments")
 
     try:
         srv_fd = os.open(runtime_root, directory_flags)
     except OSError:
         reject("managed_path_invalid")
     opened_fds.append(srv_fd)
+
+    if operation == "invalidate":
+        try:
+            bootstrap_fd = os.open(
+                "bootstrap", directory_flags, dir_fd=srv_fd
+            )
+        except FileNotFoundError:
+            sys.exit(0)
+        except OSError:
+            reject("managed_path_invalid")
+        opened_fds.append(bootstrap_fd)
+        validate_existing_marker(bootstrap_fd)
+        try:
+            os.unlink(".layout-ready", dir_fd=bootstrap_fd)
+        except FileNotFoundError:
+            pass
+        os.fsync(bootstrap_fd)
+        sys.exit(0)
 
     bootstrap_fd = open_directory(
         srv_fd, "bootstrap", 0o755, root_uid, root_gid
@@ -275,6 +289,19 @@ finally:
         except OSError:
             pass
 PYTHON
+}
+
+run_layout_helper invalidate /srv "$app_name" 0 0 1000 1000
+
+if ! command -v docker >/dev/null 2>&1; then
+  apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+fi
+
+systemctl enable --now docker
+docker info >/dev/null
+
+run_layout_helper configure /srv "$app_name" 0 0 1000 1000
 
 echo 'host_bootstrap=ready'
 echo 'next=bin/setup-kamal'
