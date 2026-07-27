@@ -157,8 +157,12 @@ automatically prune images or application data.
   layout-ready marker.
 - Successful root-disk acceptance: print the risk warning and continue.
 
-No failure path deletes files, clears a directory, overwrites the deploy
-environment, modifies DNS, or suppresses an existing ingress conflict.
+No failure path deletes application files, clears an application directory,
+overwrites the deploy environment, modifies DNS, or suppresses an existing
+ingress conflict. The sole deletion exception is descriptor-scoped
+invalidation or cleanup of the `/srv/bootstrap/.layout-ready` control marker:
+a failed bootstrap rerun leaves the host unready while preserving all
+application data.
 
 ## Testing
 
