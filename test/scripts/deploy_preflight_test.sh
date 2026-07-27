@@ -7,6 +7,10 @@ trap 'rm -rf "$temp_dir"' EXIT
 
 cat > "$temp_dir/ssh" <<'SSH'
 #!/usr/bin/env bash
+if [[ -n "${KAMAL_REGISTRY_PASSWORD+x}" || -n "${RAILS_MASTER_KEY+x}" ]]; then
+  echo 'ssh inherited deployment secrets' >&2
+  exit 65
+fi
 if [[ "${SSH_EXECUTE_REMOTE:-}" == '1' ]]; then
   shift
   if [[ "$1" != 'bash' || "$2" != '-s' || "$3" != '--' ]]; then
@@ -37,6 +41,17 @@ FINDMNT
 
 cat > "$temp_dir/remote-bin/stat" <<'STAT'
 #!/usr/bin/env bash
+if [[ "$*" == *"'%d'"* || "$*" == *"%d"* ]]; then
+  target=${!#}
+  if [[ "${PREFLIGHT_STATE:-}" == 'same_device' ]]; then
+    echo 2049
+  elif [[ "$target" == /srv ]]; then
+    echo 2050
+  else
+    echo 2049
+  fi
+  exit
+fi
 target=${!#}
 case "${PREFLIGHT_STATE:-}:$target" in
   apps_owner_bad:/srv/apps)
@@ -150,7 +165,9 @@ run_remote_failure_case() {
 
 run_remote_failure_case missing_layout bootstrap_layout_not_ready
 run_remote_failure_case same_mount srv_not_separate_filesystem
+run_remote_failure_case same_device srv_not_separate_filesystem
 ALLOW_ROOT_DISK_STORAGE=true run_remote_failure_case same_mount srv_not_separate_filesystem
+ALLOW_ROOT_DISK_STORAGE=true run_remote_failure_case same_device srv_not_separate_filesystem
 ALLOW_ROOT_DISK_STORAGE='' run_remote_failure_case same_mount srv_not_separate_filesystem
 run_remote_failure_case apps_owner_bad apps_owner_invalid
 run_remote_failure_case app_owner_bad app_shared_root_owner_invalid
@@ -169,6 +186,8 @@ test "$(sed -n '7p' "$temp_dir/ssh-args")" = ''
 grep -F 'test -f /srv/bootstrap/.layout-ready || fail bootstrap_layout_not_ready' "$temp_dir/ssh-stdin"
 grep -F 'findmnt -n -o SOURCE --target /srv' "$temp_dir/ssh-stdin"
 grep -F 'findmnt -n -o SOURCE --target /' "$temp_dir/ssh-stdin"
+grep -F "stat -c '%d' -- /srv" "$temp_dir/ssh-stdin"
+grep -F "stat -c '%d' -- /" "$temp_dir/ssh-stdin"
 grep -F 'fail srv_not_separate_filesystem' "$temp_dir/ssh-stdin"
 grep -F 'stat -c '\''%u:%g'\'' -- /srv/apps' "$temp_dir/ssh-stdin"
 grep -F 'fail apps_owner_invalid' "$temp_dir/ssh-stdin"
@@ -234,6 +253,22 @@ test ! -s "$temp_dir/root-disk.out"
 test "$(cat "$temp_dir/root-disk.err")" = \
   'warning=root_disk_storage_enabled data_will_not_survive_server_loss'
 
+if ! SSH_EXECUTE_REMOTE=1 \
+  REMOTE_BASH_ENV="$temp_dir/remote-bash-env" \
+  PREFLIGHT_STATE=same_device \
+  PATH="$temp_dir:$temp_dir/remote-bin:$PATH" \
+  KAMAL_HOST=shared-kamal-01 \
+  APP_SHARED_ROOT=/srv/apps/website/shared \
+  ALLOW_ROOT_DISK_STORAGE=1 \
+  "$project_root/bin/deploy-preflight" \
+  >"$temp_dir/same-device.out" 2>"$temp_dir/same-device.err"; then
+  echo 'expected same-device opt-in to pass' >&2
+  exit 1
+fi
+test ! -s "$temp_dir/same-device.out"
+test "$(cat "$temp_dir/same-device.err")" = \
+  'warning=root_disk_storage_enabled data_will_not_survive_server_loss'
+
 if grep -Fq 'registry-secret-should-not-appear' \
   "$temp_dir/root-disk.out" "$temp_dir/root-disk.err"; then
   echo 'preflight exposed the registry secret' >&2
@@ -293,6 +328,23 @@ if KAMAL_HOST=shared-kamal-01 APP_SHARED_ROOT=/srv/apps/website/nested/shared PA
 fi
 grep -Fx 'error=invalid_app_shared_root' "$temp_dir/nested-path.out"
 test ! -e "$temp_dir/ssh-args"
+
+for adversarial_root in \
+  '/srv/apps/-leading/shared' \
+  '/srv/apps/trailing-/shared' \
+  '/srv/apps/.hidden/shared' \
+  '/srv/apps/name;touch/shared' \
+  '/srv/apps/has space/shared'; do
+  rm -f "$temp_dir/ssh-args"
+  if KAMAL_HOST=shared-kamal-01 APP_SHARED_ROOT="$adversarial_root" \
+    PATH="$temp_dir:$PATH" "$project_root/bin/deploy-preflight" \
+      >"$temp_dir/adversarial-path.out" 2>&1; then
+    echo "expected adversarial APP_SHARED_ROOT to fail: $adversarial_root" >&2
+    exit 1
+  fi
+  grep -Fx 'error=invalid_app_shared_root' "$temp_dir/adversarial-path.out"
+  test ! -e "$temp_dir/ssh-args"
+done
 
 mkdir "$temp_dir/failure-bin"
 cat > "$temp_dir/failure-bin/ssh" <<'SSH'

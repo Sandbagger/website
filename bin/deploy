@@ -14,15 +14,19 @@ fi
 
 if [[ -n "$destination" ]]; then
   default_env_file="$HERE/.env.deploy.$destination"
+  handoff_service=website-staging
+  expected_shared_root=/srv/apps/website-staging/shared
 else
   default_env_file="$HERE/.env.deploy"
+  handoff_service=website
+  expected_shared_root=/srv/apps/website/shared
 fi
 
 ENV_FILE="${DEPLOY_ENV_FILE:-$default_env_file}"
 
 if [[ ! -f $ENV_FILE ]]; then
   echo "error=missing_env_file path=$ENV_FILE" >&2
-  echo "hint=dotfiles-hetzner-tf handoff website --format env > $default_env_file" >&2
+  echo "hint=dotfiles-hetzner-tf handoff $handoff_service --format env > $default_env_file" >&2
   exit 1
 fi
 
@@ -40,7 +44,12 @@ for var in "${required[@]}"; do
 done
 if (( ${#missing[@]} > 0 )); then
   echo "error=missing_vars vars=${missing[*]}" >&2
-  echo "hint=regenerate $default_env_file with dotfiles-hetzner-tf handoff website --format env" >&2
+  echo "hint=edit $ENV_FILE in place; do not regenerate or overwrite it" >&2
+  exit 2
+fi
+
+if [[ "$APP_SHARED_ROOT" != "$expected_shared_root" ]]; then
+  echo "error=unexpected_app_shared_root expected=$expected_shared_root" >&2
   exit 2
 fi
 

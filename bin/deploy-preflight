@@ -12,7 +12,7 @@ if [[ -z "${APP_SHARED_ROOT:-}" ]]; then
   exit 1
 fi
 
-if [[ ! "$APP_SHARED_ROOT" =~ ^/srv/apps/[^/]+/shared$ ]]; then
+if [[ ! "$APP_SHARED_ROOT" =~ ^/srv/apps/[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?/shared$ ]]; then
   echo "error=invalid_app_shared_root" >&2
   exit 1
 fi
@@ -25,7 +25,8 @@ fi
 ssh_stderr=$(mktemp)
 trap 'rm -f "$ssh_stderr"' EXIT
 
-if ssh "root@$KAMAL_HOST" bash -s -- \
+if env -u KAMAL_REGISTRY_PASSWORD -u RAILS_MASTER_KEY \
+  ssh "root@$KAMAL_HOST" bash -s -- \
   "$APP_SHARED_ROOT" "$allow_root_disk_storage" 2>"$ssh_stderr" <<'REMOTE'
 set -euo pipefail
 
@@ -34,14 +35,21 @@ fail() {
   exit 1
 }
 
-app_shared_root="$1"
-allow_root_disk_storage="$2"
+[[ $# == 2 ]] || fail invalid_preflight_arguments
+app_shared_root=$1
+allow_root_disk_storage=$2
+[[ "$app_shared_root" =~ ^/srv/apps/[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?/shared$ ]] ||
+  fail invalid_app_shared_root
+[[ "$allow_root_disk_storage" == 0 || "$allow_root_disk_storage" == 1 ]] ||
+  fail invalid_root_disk_storage
 
 test -f /srv/bootstrap/.layout-ready || fail bootstrap_layout_not_ready
 
 srv_source=$(findmnt -n -o SOURCE --target /srv) || fail srv_mount_source_unavailable
 root_source=$(findmnt -n -o SOURCE --target /) || fail root_mount_source_unavailable
-if [[ "$srv_source" == "$root_source" ]]; then
+srv_device=$(stat -c '%d' -- /srv) || fail srv_device_unavailable
+root_device=$(stat -c '%d' -- /) || fail root_device_unavailable
+if [[ "$srv_source" == "$root_source" || "$srv_device" == "$root_device" ]]; then
   [[ "$allow_root_disk_storage" == '1' ]] || fail srv_not_separate_filesystem
   echo 'warning=root_disk_storage_enabled data_will_not_survive_server_loss' >&2
 fi

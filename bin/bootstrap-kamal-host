@@ -25,7 +25,8 @@ if [[ "${ALLOW_ROOT_DISK_STORAGE:-}" == 1 ]]; then
   allow_root_disk_storage=1
 fi
 
-ssh "root@$KAMAL_HOST" bash -s -- \
+env -u KAMAL_REGISTRY_PASSWORD -u RAILS_MASTER_KEY \
+  ssh "root@$KAMAL_HOST" bash -s -- \
   "$APP_SHARED_ROOT" "$allow_root_disk_storage" <<'REMOTE'
 set -euo pipefail
 
@@ -51,7 +52,11 @@ srv_source=$(findmnt -n -o SOURCE --target /srv) ||
   fail srv_mount_source_unavailable
 root_source=$(findmnt -n -o SOURCE --target /) ||
   fail root_mount_source_unavailable
-if [[ "$srv_source" == "$root_source" ]]; then
+srv_device=$(stat -c '%d' -- /srv) ||
+  fail srv_device_unavailable
+root_device=$(stat -c '%d' -- /) ||
+  fail root_device_unavailable
+if [[ "$srv_source" == "$root_source" || "$srv_device" == "$root_device" ]]; then
   [[ "$allow_root_disk_storage" == 1 ]] ||
     fail srv_not_separate_filesystem
   echo 'warning=root_disk_storage_enabled data_will_not_survive_server_loss' >&2

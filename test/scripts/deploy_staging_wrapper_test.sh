@@ -37,3 +37,46 @@ version_line=$(grep -n '^bundle:exec kamal version$' "$temp_dir/events" | cut -d
 destination_line=$(grep -n '^bundle:exec kamal -d staging config$' "$temp_dir/events" | cut -d: -f1)
 (( preflight_line < version_line ))
 (( preflight_line < destination_line ))
+
+cat > "$temp_dir/production-path.env" <<'ENV'
+KAMAL_HOST=shared-kamal-01
+APP_SHARED_ROOT=/srv/apps/website/shared
+ENV
+
+: > "$temp_dir/events"
+if EVENTS_FILE="$temp_dir/events" \
+  DEPLOY_ENV_FILE="$temp_dir/production-path.env" \
+  PATH="$temp_dir:$PATH" \
+  "$project_root/bin/deploy" staging config \
+    >"$temp_dir/wrong-path.out" 2>&1; then
+  echo 'expected staging with the production shared root to fail' >&2
+  exit 1
+fi
+grep -Fx \
+  'error=unexpected_app_shared_root expected=/srv/apps/website-staging/shared' \
+  "$temp_dir/wrong-path.out"
+test ! -s "$temp_dir/events"
+
+missing_env="$temp_dir/missing-staging.env"
+if DEPLOY_ENV_FILE="$missing_env" PATH="$temp_dir:$PATH" \
+  "$project_root/bin/deploy" staging config \
+    >"$temp_dir/missing-env.out" 2>&1; then
+  echo 'expected a missing staging environment file to fail' >&2
+  exit 1
+fi
+grep -Fx \
+  "hint=dotfiles-hetzner-tf handoff website-staging --format env > $project_root/.env.deploy.staging" \
+  "$temp_dir/missing-env.out"
+
+cat > "$temp_dir/missing-var.env" <<'ENV'
+KAMAL_HOST=shared-kamal-01
+ENV
+if DEPLOY_ENV_FILE="$temp_dir/missing-var.env" PATH="$temp_dir:$PATH" \
+  "$project_root/bin/deploy" staging config \
+    >"$temp_dir/missing-var.out" 2>&1; then
+  echo 'expected missing staging variables to fail' >&2
+  exit 1
+fi
+grep -Fx \
+  "hint=edit $temp_dir/missing-var.env in place; do not regenerate or overwrite it" \
+  "$temp_dir/missing-var.out"

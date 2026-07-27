@@ -42,6 +42,10 @@ cat > "$temp_dir/ssh" <<'SSH'
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -n "${KAMAL_REGISTRY_PASSWORD+x}" || -n "${RAILS_MASTER_KEY+x}" ]]; then
+  echo 'ssh inherited deployment secrets' >&2
+  exit 65
+fi
 printf '%s\n' "$@" > "$SSH_ARGS_FILE"
 cat > "$SSH_STDIN_FILE"
 
@@ -156,6 +160,23 @@ else
   echo /dev/vdb1
 fi
 FINDMNT
+
+cat > "$temp_dir/remote-bin/stat" <<'STAT'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"'%d'"* || "$*" == *"%d"* ]]; then
+  target=${!#}
+  if [[ ${SAME_DEVICE:-0} == 1 ]]; then
+    echo 2049
+  elif [[ $target == /srv ]]; then
+    echo 2050
+  else
+    echo 2049
+  fi
+  exit
+fi
+exec /usr/bin/stat "$@"
+STAT
 
 cat > "$temp_dir/remote-bin/apt-get" <<'APT'
 #!/usr/bin/env bash
@@ -361,8 +382,8 @@ run_remote_preserving_host() {
     PATH="$temp_dir:$temp_dir/remote-bin:$PATH"
     KAMAL_HOST=host.example.test
     APP_SHARED_ROOT=/srv/apps/website/shared
-    TEST_REGISTRY_SECRET=registry-secret-should-not-appear
-    TEST_MASTER_SECRET=master-secret-should-not-appear
+    KAMAL_REGISTRY_PASSWORD=registry-secret-should-not-appear
+    RAILS_MASTER_KEY=master-secret-should-not-appear
     REAL_PYTHON="$real_python"
     PYTHON_RUNNER="$temp_dir/python-runner.py"
     TEST_UID="$(id -u)"
@@ -528,6 +549,16 @@ assert_contains \
   'warning=root_disk_storage_enabled data_will_not_survive_server_loss' \
   "$temp_dir/same-fs-allowed.output"
 assert_contains 'host_bootstrap=ready' "$temp_dir/same-fs-allowed.output"
+
+assert_failed_with same-device-unset srv_not_separate_filesystem __unset__ SAME_DEVICE=1
+assert_no_mutation
+assert_failed_with same-device-invalid srv_not_separate_filesystem true SAME_DEVICE=1
+assert_no_mutation
+run_remote same-device-allowed 1 SAME_DEVICE=1
+assert_contains \
+  'warning=root_disk_storage_enabled data_will_not_survive_server_loss' \
+  "$temp_dir/same-device-allowed.output"
+assert_contains 'host_bootstrap=ready' "$temp_dir/same-device-allowed.output"
 
 run_remote separate-fs __unset__
 assert_contains 'host_bootstrap=ready' "$temp_dir/separate-fs.output"
