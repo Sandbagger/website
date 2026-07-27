@@ -56,16 +56,22 @@ assert_rejected_option -d short-d -d staging
 assert_rejected_option -dstaging attached-d -dstaging
 assert_rejected_option --destination long-d --destination staging
 assert_rejected_option --destination=staging value-d --destination=staging
+assert_rejected_option -vd bundled-d -vd staging
 assert_rejected_option -c short-c -c config/other.yml
 assert_rejected_option -cconfig/other.yml attached-c -cconfig/other.yml
 assert_rejected_option --config-file long-c --config-file config/other.yml
 assert_rejected_option \
   --config-file=config/other.yml value-c --config-file=config/other.yml
+assert_rejected_option -vc bundled-c -vc config/other.yml
+assert_rejected_option -qvcconfig/other.yml bundled-qvc -qvcconfig/other.yml
 assert_rejected_option -H short-hooks -H
 assert_rejected_option -H=true value-short-hooks -H=true
 assert_rejected_option -Hfalse attached-short-hooks -Hfalse
+assert_rejected_option -vH bundled-hooks -vH
+assert_rejected_option -Hv reverse-bundled-hooks -Hv
 assert_rejected_option --skip-hooks long-hooks --skip-hooks
 assert_rejected_option --skip-hooks=true value-hooks --skip-hooks=true
+assert_rejected_option -xv ambiguous-bundle -xv
 
 cat > "$temp_dir/adversarial-routing.env" <<'ENV'
 KAMAL_HOST=shared-kamal-01
@@ -82,13 +88,13 @@ ENV
 EVENTS_FILE="$temp_dir/events" \
 DEPLOY_ENV_FILE="$temp_dir/adversarial-routing.env" \
 PATH="$temp_dir:$PATH" \
-"$project_root/bin/deploy" logs -r web
+"$project_root/bin/deploy" logs -v -r web
 
 grep -Fx \
   'ssh:root@shared-kamal-01 bash -s -- /srv/apps/website/shared 0' \
   "$temp_dir/events"
 grep -Fx 'bundle:exec kamal version' "$temp_dir/events"
-grep -Fx 'bundle:exec kamal logs -r web' "$temp_dir/events"
+grep -Fx 'bundle:exec kamal logs -v -r web' "$temp_dir/events"
 if grep -Fq 'bundle:exec kamal -d' "$temp_dir/events"; then
   echo 'production routing was changed by sourced environment variables' >&2
   exit 1

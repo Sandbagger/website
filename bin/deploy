@@ -14,14 +14,44 @@ if [[ "${1:-}" == "staging" ]]; then
 fi
 readonly DEPLOY_WRAPPER_DESTINATION
 
+validate_kamal_short_token() {
+  local token=$1 cluster option
+
+  cluster=${token#-}
+  while [[ -n "$cluster" ]]; do
+    option=${cluster:0:1}
+    cluster=${cluster:1}
+    case "$option" in
+      d|c|H)
+        printf 'error=unsupported_kamal_option option=%s\n' "$token" >&2
+        return 1
+        ;;
+      h|r)
+        return 0
+        ;;
+      v|q|p)
+        ;;
+      *)
+        if [[ -n "$cluster" ]]; then
+          printf 'error=unsupported_kamal_option option=%s\n' "$token" >&2
+          return 1
+        fi
+        ;;
+    esac
+  done
+}
+
 for deploy_wrapper_argument in "$@"; do
   case "$deploy_wrapper_argument" in
-    -d|-d?*|--destination|--destination=*|\
-    -c|-c?*|--config-file|--config-file=*|\
-    -H|-H?*|--skip-hooks|--skip-hooks=*)
+    --destination|--destination=*|\
+    --config-file|--config-file=*|\
+    --skip-hooks|--skip-hooks=*)
       printf 'error=unsupported_kamal_option option=%s\n' \
         "$deploy_wrapper_argument" >&2
       exit 1
+      ;;
+    -[!-]*)
+      validate_kamal_short_token "$deploy_wrapper_argument" || exit 1
       ;;
   esac
 done

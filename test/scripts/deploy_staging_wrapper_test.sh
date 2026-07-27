@@ -60,16 +60,22 @@ assert_rejected_option -d short-d -d production
 assert_rejected_option -dproduction attached-d -dproduction
 assert_rejected_option --destination long-d --destination production
 assert_rejected_option --destination=production value-d --destination=production
+assert_rejected_option -vd bundled-d -vd production
 assert_rejected_option -c short-c -c config/other.yml
 assert_rejected_option -cconfig/other.yml attached-c -cconfig/other.yml
 assert_rejected_option --config-file long-c --config-file config/other.yml
 assert_rejected_option \
   --config-file=config/other.yml value-c --config-file=config/other.yml
+assert_rejected_option -vc bundled-c -vc config/other.yml
+assert_rejected_option -qvcconfig/other.yml bundled-qvc -qvcconfig/other.yml
 assert_rejected_option -H short-hooks -H
 assert_rejected_option -H=true value-short-hooks -H=true
 assert_rejected_option -Hfalse attached-short-hooks -Hfalse
+assert_rejected_option -vH bundled-hooks -vH
+assert_rejected_option -Hv reverse-bundled-hooks -Hv
 assert_rejected_option --skip-hooks long-hooks --skip-hooks
 assert_rejected_option --skip-hooks=true value-hooks --skip-hooks=true
+assert_rejected_option -xv ambiguous-bundle -xv
 
 cat > "$temp_dir/adversarial-routing.env" <<'ENV'
 KAMAL_HOST=shared-kamal-01
