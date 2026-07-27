@@ -161,6 +161,18 @@ cat > "$temp_dir/remote-bin/apt-get" <<'APT'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'apt-get:%s:%s\n' "${DEBIAN_FRONTEND:-}" "$*" >> "$EVENT_LOG"
+if [[ ${ATTEMPT_MARKER_RECREATE:-0} == 1 && ${1:-} == update ]]; then
+  bootstrap="$MOCK_DIR/remote-srv/bootstrap"
+  mode=$(stat -f '%Lp' "$bootstrap" 2>/dev/null ||
+    stat -c '%a' "$bootstrap")
+  if grep -Fqx '/srv/bootstrap|0:0' "$OWNERSHIP_LOG" &&
+    [[ $mode == 755 ]]; then
+    echo 'marker-recreation:denied app=1000:1000' >> "$EVENT_LOG"
+  else
+    : > "$bootstrap/.layout-ready"
+    echo 'marker-recreation:allowed' >> "$EVENT_LOG"
+  fi
+fi
 [[ ${FAILURE:-} != package_update || ${1:-} != update ]] || exit 31
 [[ ${FAILURE:-} != package_install || ${1:-} != install ]] || exit 31
 if [[ ${1:-} == install ]]; then
@@ -229,6 +241,7 @@ real_fsync = os.fsync
 test_uid = int(os.environ["TEST_UID"])
 test_gid = int(os.environ["TEST_GID"])
 runtime_root = helper_arguments[1]
+operation = helper_arguments[0]
 ownership_log = os.environ["OWNERSHIP_LOG"]
 requested_ownership = {}
 descriptor_paths = {}
@@ -259,7 +272,11 @@ def injected_open(path, flags, *args, **kwargs):
 
 
 def injected_fchmod(fd, mode):
-    if failure == "layout_mode" and mode in (0o750, 0o755):
+    if (
+        failure == "layout_mode"
+        and operation == "configure"
+        and mode in (0o750, 0o755)
+    ):
         return real_fchmod(fd, 0o700)
     if failure == "temp_marker_mode" and mode == 0o644:
         return real_fchmod(fd, 0o600)
@@ -278,7 +295,7 @@ def injected_fchown(fd, uid, gid):
         logical_path = "/srv/bootstrap/.layout-ready"
     with open(ownership_log, "a", encoding="utf-8") as log_file:
         log_file.write(f"{logical_path}|{uid}:{gid}\n")
-    if failure == "layout_owner":
+    if failure == "layout_owner" and operation == "configure":
         raise OSError("injected fchown failure")
     return real_fchown(fd, test_uid, test_gid)
 
@@ -531,6 +548,31 @@ assert_failed_with missing-systemctl host_command_missing __unset__ MISSING_COMM
 assert_no_mutation
 assert_failed_with missing-python host_command_missing __unset__ MISSING_COMMAND=python3
 assert_no_mutation
+
+# Invalidation secures its namespace before a failed package action can recreate readiness.
+reset_host
+/bin/mkdir -p "$temp_dir/remote-srv/bootstrap"
+chmod 0777 "$temp_dir/remote-srv/bootstrap"
+: > "$temp_dir/remote-srv/bootstrap/.layout-ready"
+if run_remote_preserving_host unsafe-bootstrap-package-failure __unset__ \
+  FAILURE=package_update ATTEMPT_MARKER_RECREATE=1; then
+  fail "expected injected package failure"
+fi
+assert_contains '/srv/bootstrap|0:0' "$temp_dir/ownership-log"
+assert_contains 'marker-recreation:denied app=1000:1000' "$temp_dir/events"
+[[ $(sed -n '1p' "$temp_dir/events") == \
+  'python3:- invalidate /srv website 0 0 1000 1000' ]] ||
+  fail "namespace invalidation did not precede package action"
+[[ $(sed -n '2p' "$temp_dir/events") == 'apt-get::update' ]] ||
+  fail "injected package action did not follow invalidation"
+[[ $(sed -n '3p' "$temp_dir/events") == \
+  'marker-recreation:denied app=1000:1000' ]] ||
+  fail "app marker recreation was not denied during package action"
+bootstrap_mode=$(stat -f '%Lp' "$temp_dir/remote-srv/bootstrap" 2>/dev/null ||
+  stat -c '%a' "$temp_dir/remote-srv/bootstrap")
+[[ $bootstrap_mode == 755 ]] ||
+  fail "invalidation left bootstrap mode $bootstrap_mode"
+assert_marker_absent
 
 managed_paths=(
   /srv/bootstrap

@@ -199,6 +199,21 @@ try:
         except OSError:
             reject("managed_path_invalid")
         opened_fds.append(bootstrap_fd)
+        try:
+            os.fchown(bootstrap_fd, root_uid, root_gid)
+            os.fchmod(bootstrap_fd, 0o755)
+            bootstrap_details = os.fstat(bootstrap_fd)
+        except OSError:
+            reject("layout_configuration_failed")
+        if not stat.S_ISDIR(bootstrap_details.st_mode):
+            reject("managed_path_invalid")
+        if stat.S_IMODE(bootstrap_details.st_mode) != 0o755:
+            reject("layout_mode_invalid")
+        if (bootstrap_details.st_uid, bootstrap_details.st_gid) != (
+            root_uid,
+            root_gid,
+        ):
+            reject("layout_owner_invalid")
         validate_existing_marker(bootstrap_fd)
         try:
             os.unlink(".layout-ready", dir_fd=bootstrap_fd)
