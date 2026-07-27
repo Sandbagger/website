@@ -89,15 +89,25 @@ if [[ "$mode" == bootstrap ]]; then
   exec "$HERE/bin/bootstrap-kamal-host"
 fi
 
-if preflight_output=$("$HERE/bin/deploy-preflight" 2>&1); then
-  if [[ -n "$preflight_output" ]]; then
-    printf '%s\n' "$preflight_output" >&2
-  fi
+preflight_stderr=$(mktemp)
+trap 'rm -f "$preflight_stderr"' EXIT
+
+if "$HERE/bin/deploy-preflight" 2>"$preflight_stderr"; then
+  preflight_status=0
 else
-  if [[ -n "$preflight_output" ]]; then
-    printf '%s\n' "$preflight_output" >&2
-  fi
-  if grep -Fxq 'error=bootstrap_layout_not_ready' <<< "$preflight_output"; then
+  preflight_status=$?
+fi
+
+cat "$preflight_stderr" >&2
+bootstrap_layout_not_ready=false
+if grep -Fxq 'error=bootstrap_layout_not_ready' "$preflight_stderr"; then
+  bootstrap_layout_not_ready=true
+fi
+rm -f "$preflight_stderr"
+trap - EXIT
+
+if (( preflight_status != 0 )); then
+  if [[ "$bootstrap_layout_not_ready" == true ]]; then
     echo 'hint=run bin/setup-kamal --bootstrap-host to prepare this existing host' >&2
   fi
   echo 'hint=repair the reported host prerequisite, then rerun bin/setup-kamal' >&2

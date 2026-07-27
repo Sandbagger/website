@@ -42,6 +42,9 @@ if grep -Fq "echo 'host_bootstrap=ready'" "$ssh_stdin"; then
   exit 0
 fi
 printf 'ssh:%s\n' "$*" >> "$EVENTS_FILE"
+if [[ -n "${SSH_STDOUT:-}" ]]; then
+  echo "$SSH_STDOUT"
+fi
 if [[ -n "${SSH_FAILURE:-}" ]]; then
   echo "error=$SSH_FAILURE" >&2
   exit 1
@@ -146,21 +149,27 @@ assert_no_secrets "$temp_dir/bootstrap_insecure.output"
 assert_no_external_commands "$temp_dir/bootstrap_insecure.events"
 
 if EVENTS_FILE="$temp_dir/preflight_failure.events" \
+  SSH_STDOUT=probe=stdout \
   SSH_FAILURE=bootstrap_layout_not_ready \
   DEPLOY_ENV_FILE="$temp_dir/valid.env" \
   PATH="$temp_dir:$PATH" \
-  "$project_root/bin/setup-kamal" >"$temp_dir/preflight_failure.output" 2>&1; then
+  "$project_root/bin/setup-kamal" >"$temp_dir/preflight_failure.stdout" 2>"$temp_dir/preflight_failure.stderr"; then
   echo 'expected preflight failure to stop setup' >&2
   exit 1
 fi
 
-grep -Fx 'error=bootstrap_layout_not_ready' "$temp_dir/preflight_failure.output"
-grep -Fx 'error=preflight_ssh_failed' "$temp_dir/preflight_failure.output"
-grep -Fx 'hint=run bin/setup-kamal --bootstrap-host to prepare this existing host' "$temp_dir/preflight_failure.output"
-grep -Fx 'hint=repair the reported host prerequisite, then rerun bin/setup-kamal' "$temp_dir/preflight_failure.output"
+grep -Fx 'probe=stdout' "$temp_dir/preflight_failure.stdout"
+assert_absent 'probe=stdout' "$temp_dir/preflight_failure.stderr"
+grep -Fx 'error=bootstrap_layout_not_ready' "$temp_dir/preflight_failure.stderr"
+grep -Fx 'error=preflight_ssh_failed' "$temp_dir/preflight_failure.stderr"
+grep -Fx 'hint=run bin/setup-kamal --bootstrap-host to prepare this existing host' "$temp_dir/preflight_failure.stderr"
+grep -Fx 'hint=repair the reported host prerequisite, then rerun bin/setup-kamal' "$temp_dir/preflight_failure.stderr"
+assert_absent 'error=' "$temp_dir/preflight_failure.stdout"
+assert_absent 'hint=' "$temp_dir/preflight_failure.stdout"
 grep -Fx 'ssh:root@hetzner.example.test bash -s -- /srv/apps/website/shared 0' "$temp_dir/preflight_failure.events"
 assert_absent 'bundle:' "$temp_dir/preflight_failure.events"
-assert_no_secrets "$temp_dir/preflight_failure.output"
+assert_no_secrets "$temp_dir/preflight_failure.stdout"
+assert_no_secrets "$temp_dir/preflight_failure.stderr"
 
 if EVENTS_FILE="$temp_dir/unrelated_preflight_failure.events" \
   SSH_FAILURE=foreign_ingress_listener \
@@ -199,14 +208,19 @@ printf '%s\n' 'ALLOW_ROOT_DISK_STORAGE=1' >> "$temp_dir/root_disk.env"
 chmod 600 "$temp_dir/root_disk.env"
 
 EVENTS_FILE="$temp_dir/root_disk_warning.events" \
+SSH_STDOUT=probe=stdout \
 SSH_WARNING=1 \
 DEPLOY_ENV_FILE="$temp_dir/root_disk.env" \
 PATH="$temp_dir:$PATH" \
-"$project_root/bin/setup-kamal" >"$temp_dir/root_disk_warning.output" 2>&1
+"$project_root/bin/setup-kamal" >"$temp_dir/root_disk_warning.stdout" 2>"$temp_dir/root_disk_warning.stderr"
 
 grep -Fx 'ssh:root@hetzner.example.test bash -s -- /srv/apps/website/shared 1' "$temp_dir/root_disk_warning.events"
-grep -Fx 'warning=root_disk_storage_enabled data_will_not_survive_server_loss' "$temp_dir/root_disk_warning.output"
-assert_no_secrets "$temp_dir/root_disk_warning.output"
+grep -Fx 'probe=stdout' "$temp_dir/root_disk_warning.stdout"
+assert_absent 'probe=stdout' "$temp_dir/root_disk_warning.stderr"
+grep -Fx 'warning=root_disk_storage_enabled data_will_not_survive_server_loss' "$temp_dir/root_disk_warning.stderr"
+assert_absent 'warning=' "$temp_dir/root_disk_warning.stdout"
+assert_no_secrets "$temp_dir/root_disk_warning.stdout"
+assert_no_secrets "$temp_dir/root_disk_warning.stderr"
 assert_no_secrets "$temp_dir/root_disk_warning.events"
 assert_no_secrets "$temp_dir/root_disk_warning.events.ssh-stdin"
 
