@@ -52,22 +52,39 @@ if [[ "$*" == *"'%d'"* || "$*" == *"%d"* ]]; then
   fi
   exit
 fi
-target=${!#}
-case "${PREFLIGHT_STATE:-}:$target" in
-  apps_owner_bad:/srv/apps)
-    echo '1000:1000'
-    ;;
-  app_owner_bad:/srv/apps/website/shared|db_owner_bad:/srv/apps/website/shared/db)
-    echo '0:0'
-    ;;
-  *:/srv/apps)
-    echo '0:0'
-    ;;
-  *)
-    echo '1000:1000'
-    ;;
-esac
+exit 64
 STAT
+
+cat > "$temp_dir/remote-bin/python3" <<'PYTHON'
+#!/usr/bin/env bash
+cat > /dev/null
+case "${PREFLIGHT_STATE:-}" in
+  missing_layout) error=bootstrap_layout_not_ready ;;
+  runtime_owner_bad) error=storage_runtime_owner_invalid ;;
+  runtime_mode_bad) error=storage_runtime_mode_invalid ;;
+  bootstrap_symlink) error=bootstrap_invalid ;;
+  bootstrap_owner_bad) error=bootstrap_owner_invalid ;;
+  bootstrap_mode_bad) error=bootstrap_mode_invalid ;;
+  marker_symlink) error=layout_marker_invalid ;;
+  marker_owner_bad) error=layout_marker_owner_invalid ;;
+  marker_mode_bad) error=layout_marker_mode_invalid ;;
+  apps_owner_bad) error=apps_owner_invalid ;;
+  apps_mode_bad) error=apps_mode_invalid ;;
+  app_root_symlink) error=app_root_invalid ;;
+  app_root_owner_bad) error=app_root_owner_invalid ;;
+  app_root_mode_bad) error=app_root_mode_invalid ;;
+  shared_symlink) error=app_shared_root_symlink ;;
+  shared_owner_bad) error=app_shared_root_owner_invalid ;;
+  shared_mode_bad) error=app_shared_root_mode_invalid ;;
+  db_missing) error=app_shared_db_missing ;;
+  db_symlink) error=app_shared_db_invalid ;;
+  db_owner_bad) error=app_shared_db_owner_invalid ;;
+  db_mode_bad) error=app_shared_db_mode_invalid ;;
+  *) exit 0 ;;
+esac
+printf 'error=%s\n' "$error" >&2
+exit 1
+PYTHON
 
 cat > "$temp_dir/remote-bin/ss" <<'SS'
 #!/usr/bin/env bash
@@ -94,7 +111,8 @@ esac
 DOCKER
 
 chmod +x "$temp_dir/remote-bin/findmnt" "$temp_dir/remote-bin/stat" \
-  "$temp_dir/remote-bin/ss" "$temp_dir/remote-bin/docker"
+  "$temp_dir/remote-bin/python3" "$temp_dir/remote-bin/ss" \
+  "$temp_dir/remote-bin/docker"
 
 cat > "$temp_dir/remote-bash-env" <<'BASH_ENV'
 test() {
@@ -164,15 +182,31 @@ run_remote_failure_case() {
 }
 
 run_remote_failure_case missing_layout bootstrap_layout_not_ready
+run_remote_failure_case runtime_owner_bad storage_runtime_owner_invalid
+run_remote_failure_case runtime_mode_bad storage_runtime_mode_invalid
+run_remote_failure_case bootstrap_symlink bootstrap_invalid
+run_remote_failure_case bootstrap_owner_bad bootstrap_owner_invalid
+run_remote_failure_case bootstrap_mode_bad bootstrap_mode_invalid
+run_remote_failure_case marker_symlink layout_marker_invalid
+run_remote_failure_case marker_owner_bad layout_marker_owner_invalid
+run_remote_failure_case marker_mode_bad layout_marker_mode_invalid
 run_remote_failure_case same_mount srv_not_separate_filesystem
 run_remote_failure_case same_device srv_not_separate_filesystem
 ALLOW_ROOT_DISK_STORAGE=true run_remote_failure_case same_mount srv_not_separate_filesystem
 ALLOW_ROOT_DISK_STORAGE=true run_remote_failure_case same_device srv_not_separate_filesystem
 ALLOW_ROOT_DISK_STORAGE='' run_remote_failure_case same_mount srv_not_separate_filesystem
 run_remote_failure_case apps_owner_bad apps_owner_invalid
-run_remote_failure_case app_owner_bad app_shared_root_owner_invalid
+run_remote_failure_case apps_mode_bad apps_mode_invalid
+run_remote_failure_case app_root_symlink app_root_invalid
+run_remote_failure_case app_root_owner_bad app_root_owner_invalid
+run_remote_failure_case app_root_mode_bad app_root_mode_invalid
+run_remote_failure_case shared_symlink app_shared_root_symlink
+run_remote_failure_case shared_owner_bad app_shared_root_owner_invalid
+run_remote_failure_case shared_mode_bad app_shared_root_mode_invalid
+run_remote_failure_case db_missing app_shared_db_missing
+run_remote_failure_case db_symlink app_shared_db_invalid
 run_remote_failure_case db_owner_bad app_shared_db_owner_invalid
-run_remote_failure_case symlink app_shared_root_symlink
+run_remote_failure_case db_mode_bad app_shared_db_mode_invalid
 run_remote_failure_case foreign_ingress foreign_ingress_listener
 run_remote_failure_case foreign_container foreign_ingress_container
 run_remote_failure_case wrong_proxy foreign_ingress_container
@@ -183,18 +217,31 @@ grep -Fx -- '/srv/apps/website/shared' "$temp_dir/ssh-args"
 test "$(sed -n '5p' "$temp_dir/ssh-args")" = '/srv/apps/website/shared'
 test "$(sed -n '6p' "$temp_dir/ssh-args")" = '0'
 test "$(sed -n '7p' "$temp_dir/ssh-args")" = ''
-grep -F 'test -f /srv/bootstrap/.layout-ready || fail bootstrap_layout_not_ready' "$temp_dir/ssh-stdin"
+grep -F 'command -v python3' "$temp_dir/ssh-stdin"
+grep -F 'O_DIRECTORY' "$temp_dir/ssh-stdin"
+grep -F 'O_NOFOLLOW' "$temp_dir/ssh-stdin"
+grep -F 'O_NONBLOCK' "$temp_dir/ssh-stdin"
+grep -F 'follow_symlinks=False' "$temp_dir/ssh-stdin"
+grep -F 'st_ino' "$temp_dir/ssh-stdin"
+grep -F 'storage_runtime_owner_invalid' "$temp_dir/ssh-stdin"
+grep -F 'storage_runtime_mode_invalid' "$temp_dir/ssh-stdin"
+# shellcheck disable=SC2016
+grep -F 'run_storage_helper /srv "$app_name" 0 0 1000 1000' \
+  "$temp_dir/ssh-stdin"
 grep -F 'findmnt -n -o SOURCE --target /srv' "$temp_dir/ssh-stdin"
 grep -F 'findmnt -n -o SOURCE --target /' "$temp_dir/ssh-stdin"
 grep -F "stat -c '%d' -- /srv" "$temp_dir/ssh-stdin"
 grep -F "stat -c '%d' -- /" "$temp_dir/ssh-stdin"
 grep -F 'fail srv_not_separate_filesystem' "$temp_dir/ssh-stdin"
-grep -F 'stat -c '\''%u:%g'\'' -- /srv/apps' "$temp_dir/ssh-stdin"
-grep -F 'fail apps_owner_invalid' "$temp_dir/ssh-stdin"
-grep -F "if test -e \"\$app_shared_root\"; then" "$temp_dir/ssh-stdin"
-grep -F "stat -c '%u:%g' -- \"\$app_shared_root\"" "$temp_dir/ssh-stdin"
-grep -F "stat -c '%u:%g' -- \"\$app_shared_root/db\"" "$temp_dir/ssh-stdin"
-grep -F 'fail app_shared_db_missing' "$temp_dir/ssh-stdin"
+grep -F 'apps_owner_invalid' "$temp_dir/ssh-stdin"
+grep -F 'app_shared_db_missing' "$temp_dir/ssh-stdin"
+# shellcheck disable=SC2016
+if grep -Fq "stat -c '%u:%g'" "$temp_dir/ssh-stdin" ||
+  grep -Fq 'test -f /srv/bootstrap/.layout-ready' "$temp_dir/ssh-stdin" ||
+  grep -Fq 'test -L "$app_shared_root"' "$temp_dir/ssh-stdin"; then
+  echo 'preflight retained superseded shell storage checks' >&2
+  exit 1
+fi
 grep -F 'ss -H -ltnp' "$temp_dir/ssh-stdin"
 grep -F "docker ps --format '{{.Names}}\\t{{.Ports}}'" "$temp_dir/ssh-stdin"
 grep -F 'kamal-proxy' "$temp_dir/ssh-stdin"
@@ -202,6 +249,71 @@ grep -F 'fail foreign_ingress_listener' "$temp_dir/ssh-stdin"
 grep -F 'fail foreign_ingress_container' "$temp_dir/ssh-stdin"
 grep -F 'fail kamal_proxy_ports_invalid' "$temp_dir/ssh-stdin"
 grep -F "[[ -n \"\$ingress_listeners\" && -z \"\$ingress_containers\" ]] && fail foreign_ingress_listener" "$temp_dir/ssh-stdin"
+
+storage_helper="$temp_dir/storage-helper.py"
+sed -n '/^import os$/,/^PYTHON$/p' "$temp_dir/ssh-stdin" |
+  sed '$d' > "$storage_helper"
+runtime_root="$temp_dir/runtime-srv"
+test_uid=$(id -u)
+test_gid=$(id -g)
+mkdir -p "$runtime_root/bootstrap" "$runtime_root/apps"
+chmod 0755 "$runtime_root"
+chmod 0755 "$runtime_root/bootstrap" "$runtime_root/apps"
+: > "$runtime_root/bootstrap/.layout-ready"
+chmod 0644 "$runtime_root/bootstrap/.layout-ready"
+
+# An absent app root and an app root without shared are valid before pre-app.
+python3 "$storage_helper" "$runtime_root" website \
+  "$test_uid" "$test_gid" "$test_uid" "$test_gid"
+chmod 0700 "$runtime_root"
+if python3 "$storage_helper" "$runtime_root" website \
+  "$test_uid" "$test_gid" "$test_uid" "$test_gid" \
+    >"$temp_dir/real-runtime-mode.out" 2>&1; then
+  echo 'expected real helper to reject a drifted runtime mode' >&2
+  exit 1
+fi
+grep -Fx 'error=storage_runtime_mode_invalid' \
+  "$temp_dir/real-runtime-mode.out"
+chmod 0755 "$runtime_root"
+mkdir "$runtime_root/apps/website"
+chmod 0750 "$runtime_root/apps/website"
+python3 "$storage_helper" "$runtime_root" website \
+  "$test_uid" "$test_gid" "$test_uid" "$test_gid"
+
+mkdir -p "$runtime_root/apps/website/shared/db"
+chmod 0750 "$runtime_root/apps/website/shared" \
+  "$runtime_root/apps/website/shared/db"
+python3 "$storage_helper" "$runtime_root" website \
+  "$test_uid" "$test_gid" "$test_uid" "$test_gid"
+
+outside="$temp_dir/outside"
+mkdir "$outside"
+printf '%s\n' keep-marker-target > "$outside/marker-target"
+rm "$runtime_root/bootstrap/.layout-ready"
+ln -s "$outside/marker-target" "$runtime_root/bootstrap/.layout-ready"
+if python3 "$storage_helper" "$runtime_root" website \
+  "$test_uid" "$test_gid" "$test_uid" "$test_gid" \
+    >"$temp_dir/real-marker-symlink.out" 2>&1; then
+  echo 'expected real helper to reject a symlinked layout marker' >&2
+  exit 1
+fi
+grep -Fx 'error=layout_marker_invalid' \
+  "$temp_dir/real-marker-symlink.out"
+grep -Fx 'keep-marker-target' "$outside/marker-target"
+
+rm "$runtime_root/bootstrap/.layout-ready"
+: > "$runtime_root/bootstrap/.layout-ready"
+chmod 0644 "$runtime_root/bootstrap/.layout-ready"
+rm -rf "$runtime_root/apps/website/shared/db"
+ln -s "$outside" "$runtime_root/apps/website/shared/db"
+if python3 "$storage_helper" "$runtime_root" website \
+  "$test_uid" "$test_gid" "$test_uid" "$test_gid" \
+    >"$temp_dir/real-db-symlink.out" 2>&1; then
+  echo 'expected real helper to reject a symlinked db directory' >&2
+  exit 1
+fi
+grep -Fx 'error=app_shared_db_invalid' "$temp_dir/real-db-symlink.out"
+grep -Fx 'keep-marker-target' "$outside/marker-target"
 
 if grep -Fq 'registry-secret-should-not-appear' \
   "$temp_dir/ssh-args" "$temp_dir/ssh-stdin" "$temp_dir/capture.out"; then
