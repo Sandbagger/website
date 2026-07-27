@@ -32,9 +32,12 @@ again.
   the exact opt-in `ALLOW_ROOT_DISK_STORAGE=1`. Preflight then emits
   `warning=root_disk_storage_enabled data_will_not_survive_server_loss`.
   Any other value is treated as `0`, so a root-disk host fails closed.
-- Each service uses `/srv/apps/<service>/shared` (for example,
-  `/srv/apps/website/shared`). `/srv/apps` is root-owned, while each app root
-  and its `db/` directory are materialized as `1000:1000`.
+- Each service uses `/srv/apps/<service>/shared`. The deploy wrapper enforces
+  the exact production path `/srv/apps/website/shared` and staging path
+  `/srv/apps/website-staging/shared` before preflight. `/srv/apps` is
+  root-owned; the pre-app-boot hook safely creates or repairs each app root,
+  `shared/`, and `shared/db/` as `0750` and `1000:1000` without following
+  symlinks.
 - Ports 80 and 443 must be unbound or owned by the exact `kamal-proxy`
   container. Existing ingress is never displaced to make a deployment work.
 - The web role prepares SQLite and verifies WAL mode before the Rails server
@@ -109,10 +112,14 @@ publicly resolves to the Hetzner host. Once it does, `bin/deploy staging setup`
 performs the initial staging deployment.
 
 ```bash
+# Generate the staging handoff once, before adding any secrets.
 dotfiles-hetzner-tf handoff website-staging --format env > .env.deploy.staging
+# From this point on, edit the live staging file in place.
 # Fill only the staging secret slots.
-# On the documented root-disk host, also edit this live file in place and set:
+# On the documented root-disk host, also set:
 # ALLOW_ROOT_DISK_STORAGE=1
+# Never rerun the redirection above after adding secrets; it overwrites the
+# live staging file.
 bin/deploy staging setup
 bin/deploy staging logs -r web
 ```
