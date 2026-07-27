@@ -224,6 +224,11 @@ if (( directory )); then
   /bin/mv "$MOCK_DIR/metadata.next" "$MOCK_DIR/metadata"
 else
   [[ ${FAILURE:-} != temp_marker ]] || exit 35
+  if grep -Fq "$target|" "$MOCK_DIR/content"; then
+    grep -Fv "$target|" "$MOCK_DIR/content" > "$MOCK_DIR/content.next" || true
+    printf '%s|\n' "$target" >> "$MOCK_DIR/content.next"
+    /bin/mv "$MOCK_DIR/content.next" "$MOCK_DIR/content"
+  fi
   grep -Fv "$target|" "$MOCK_DIR/metadata" > "$MOCK_DIR/metadata.next" || true
   printf '%s|%s|%s:%s\n' "$target" "$mode" "$owner" "$group" >> "$MOCK_DIR/metadata.next"
   /bin/mv "$MOCK_DIR/metadata.next" "$MOCK_DIR/metadata"
@@ -291,9 +296,25 @@ MV
 
 cat > "$temp_dir/remote-bin/rm" <<'RM'
 #!/usr/bin/env bash
-echo 'unexpected rm' >&2
-exit 90
+set -euo pipefail
+target=${@: -1}
+sentinel=/srv/apps/website/shared/sentinel
+if [[ $sentinel == "$target" || $sentinel == "$target/"* ]]; then
+  grep -Fv "$sentinel|" "$MOCK_DIR/content" > "$MOCK_DIR/content.next" || true
+  /bin/mv "$MOCK_DIR/content.next" "$MOCK_DIR/content"
+fi
 RM
+
+cat > "$temp_dir/remote-bin/truncate" <<'TRUNCATE'
+#!/usr/bin/env bash
+set -euo pipefail
+target=${@: -1}
+if grep -Fq "$target|" "$MOCK_DIR/content"; then
+  grep -Fv "$target|" "$MOCK_DIR/content" > "$MOCK_DIR/content.next" || true
+  printf '%s|\n' "$target" >> "$MOCK_DIR/content.next"
+  /bin/mv "$MOCK_DIR/content.next" "$MOCK_DIR/content"
+fi
+TRUNCATE
 
 cat > "$temp_dir/remote-bin/chown" <<'CHOWN'
 #!/usr/bin/env bash
@@ -314,6 +335,7 @@ reset_host() {
   : > "$temp_dir/marker"
   : > "$temp_dir/temp-marker"
   : > "$temp_dir/events"
+  : > "$temp_dir/content"
   rm -f "$temp_dir/docker-installed"
 }
 
@@ -501,8 +523,10 @@ for failure in package_update package_install systemctl docker layout_install la
   assert_marker_absent
 done
 
-# Successful layout is exact, and rerunning preserves existing application contents.
-run_remote first-success __unset__
+# Successful layout is exact, and both runs preserve modeled content inside shared.
+reset_host
+printf '%s\n' '/srv/apps/website/shared/sentinel|keep-me' > "$temp_dir/content"
+run_remote_preserving_host first-success __unset__
 expected_metadata="$temp_dir/expected-metadata"
 cat > "$expected_metadata" <<'METADATA'
 /srv/bootstrap|755|0:0
@@ -518,11 +542,11 @@ diff -u "$expected_metadata" "$temp_dir/metadata"
 [[ -s $temp_dir/marker ]] || fail "success did not publish the ready marker"
 assert_contains 'host_bootstrap=ready' "$temp_dir/first-success.output"
 assert_contains 'next=bin/setup-kamal' "$temp_dir/first-success.output"
+assert_contains '/srv/apps/website/shared/sentinel|keep-me' "$temp_dir/content"
 
-printf '%s\n' keep-me > "$temp_dir/shared-sentinel"
 : > "$temp_dir/events"
 run_remote_preserving_host second-success __unset__
-assert_contains keep-me "$temp_dir/shared-sentinel"
+assert_contains '/srv/apps/website/shared/sentinel|keep-me' "$temp_dir/content"
 diff -u "$expected_metadata" "$temp_dir/metadata"
 assert_not_contains 'apt-get:' "$temp_dir/events"
 assert_contains 'host_bootstrap=ready' "$temp_dir/second-success.output"
