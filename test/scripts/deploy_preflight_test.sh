@@ -111,6 +111,19 @@ run_preflight() {
   "$project_root/bin/deploy-preflight"
 }
 
+assert_normalized_root_disk_flag() {
+  local source_value=$1
+  local expected_value=$2
+  local case_name=$3
+
+  ALLOW_ROOT_DISK_STORAGE="$source_value" \
+    run_preflight >"$temp_dir/capture-$case_name.out" 2>&1
+
+  test "$(sed -n '5p' "$temp_dir/ssh-args")" = '/srv/apps/website/shared'
+  test "$(sed -n '6p' "$temp_dir/ssh-args")" = "$expected_value"
+  test "$(sed -n '7p' "$temp_dir/ssh-args")" = ''
+}
+
 run_preflight >"$temp_dir/capture.out" 2>&1
 
 run_remote_failure_case() {
@@ -138,6 +151,7 @@ run_remote_failure_case() {
 run_remote_failure_case missing_layout bootstrap_layout_not_ready
 run_remote_failure_case same_mount srv_not_separate_filesystem
 ALLOW_ROOT_DISK_STORAGE=true run_remote_failure_case same_mount srv_not_separate_filesystem
+ALLOW_ROOT_DISK_STORAGE='' run_remote_failure_case same_mount srv_not_separate_filesystem
 run_remote_failure_case apps_owner_bad apps_owner_invalid
 run_remote_failure_case app_owner_bad app_shared_root_owner_invalid
 run_remote_failure_case db_owner_bad app_shared_db_owner_invalid
@@ -181,6 +195,9 @@ if grep -Fq 'rails-secret-should-not-appear' \
   echo 'preflight forwarded the Rails secret' >&2
   exit 1
 fi
+
+assert_normalized_root_disk_flag true 0 invalid
+assert_normalized_root_disk_flag '' 0 blank
 
 ALLOW_ROOT_DISK_STORAGE=1 run_preflight >"$temp_dir/capture-allowed.out" 2>&1
 test "$(sed -n '5p' "$temp_dir/ssh-args")" = '/srv/apps/website/shared'
