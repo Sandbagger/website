@@ -12,17 +12,13 @@ if [[ -z "${APP_SHARED_ROOT:-}" ]]; then
   exit 1
 fi
 
-if [[ ! "$APP_SHARED_ROOT" =~ ^/srv/apps/[^/]+/shared$ ]]; then
+if [[ ! "$APP_SHARED_ROOT" =~ ^/srv/apps/[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?/shared$ ]]; then
   echo 'error=invalid_app_shared_root' >&2
   exit 1
 fi
 
 app_name=${APP_SHARED_ROOT#/srv/apps/}
 app_name=${app_name%/shared}
-if [[ "$app_name" == . || "$app_name" == .. ]]; then
-  echo 'error=invalid_app_shared_root' >&2
-  exit 1
-fi
 
 allow_root_disk_storage=0
 if [[ "${ALLOW_ROOT_DISK_STORAGE:-}" == 1 ]]; then
@@ -38,8 +34,13 @@ fail() {
   exit 1
 }
 
+[[ $# == 2 ]] || fail invalid_bootstrap_arguments
 app_shared_root=$1
 allow_root_disk_storage=$2
+[[ "$app_shared_root" =~ ^/srv/apps/[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?/shared$ ]] ||
+  fail invalid_app_shared_root
+[[ "$allow_root_disk_storage" == 0 || "$allow_root_disk_storage" == 1 ]] ||
+  fail invalid_root_disk_storage
 app_root=${app_shared_root%/shared}
 app_name=${app_root##*/}
 backup_root=/srv/backups
@@ -61,6 +62,7 @@ source /etc/os-release || fail unsupported_host_os
   fail unsupported_host_os
 command -v apt-get >/dev/null 2>&1 || fail host_command_missing
 command -v systemctl >/dev/null 2>&1 || fail host_command_missing
+command -v python3 >/dev/null 2>&1 || fail host_command_missing
 
 managed_directories=(
   /srv/bootstrap
@@ -92,43 +94,158 @@ fi
 systemctl enable --now docker
 docker info >/dev/null
 
-install -d -m 0755 -o root -g root /srv/bootstrap
-install -d -m 0755 -o root -g root /srv/apps
-install -d -m 0750 -o 1000 -g 1000 "$app_root"
-install -d -m 0750 -o 1000 -g 1000 "$app_shared_root"
-install -d -m 0750 -o 1000 -g 1000 "$app_shared_root/db"
-install -d -m 0755 -o root -g root "$backup_root"
-install -d -m 0750 -o root -g root "$app_backup_root"
+python3 - "$app_name" <<'PYTHON'
+import os
+import secrets
+import stat
+import sys
 
-verify_directory() {
-  local path=$1 expected_mode=$2 expected_owner=$3
 
-  test -d "$path" || fail managed_path_invalid
-  [[ $(stat -c '%a' -- "$path") == "$expected_mode" ]] ||
-    fail layout_mode_invalid
-  [[ $(stat -c '%u:%g' -- "$path") == "$expected_owner" ]] ||
-    fail layout_owner_invalid
-}
+class BootstrapFailure(Exception):
+    def __init__(self, code):
+        self.code = code
 
-verify_directory /srv/bootstrap 755 0:0
-verify_directory /srv/apps 755 0:0
-verify_directory "$app_root" 750 1000:1000
-verify_directory "$app_shared_root" 750 1000:1000
-verify_directory "$app_shared_root/db" 750 1000:1000
-verify_directory "$backup_root" 755 0:0
-verify_directory "$app_backup_root" 750 0:0
 
-marker_temp=$(mktemp /srv/bootstrap/.layout-ready.tmp.XXXXXX)
-test -L "$marker_temp" && fail layout_marker_invalid
-test -f "$marker_temp" || fail layout_marker_invalid
-install -m 0644 -o root -g root /dev/null "$marker_temp"
-test -L "$marker_temp" && fail layout_marker_invalid
-test -f "$marker_temp" || fail layout_marker_invalid
-[[ $(stat -c '%a' -- "$marker_temp") == 644 ]] ||
-  fail layout_marker_mode_invalid
-[[ $(stat -c '%u:%g' -- "$marker_temp") == 0:0 ]] ||
-  fail layout_marker_owner_invalid
-mv -f -- "$marker_temp" "$layout_marker"
+def reject(code):
+    raise BootstrapFailure(code)
+
+
+directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+opened_fds = []
+attached_directories = []
+bootstrap_fd = None
+marker_fd = None
+marker_temp = None
+
+
+def open_directory(parent_fd, name, mode, uid, gid):
+    try:
+        os.mkdir(name, mode=mode, dir_fd=parent_fd)
+    except FileExistsError:
+        pass
+    except OSError:
+        reject("layout_creation_failed")
+
+    try:
+        child_fd = os.open(name, directory_flags, dir_fd=parent_fd)
+    except OSError:
+        reject("managed_path_invalid")
+
+    opened_fds.append(child_fd)
+    try:
+        os.fchown(child_fd, uid, gid)
+        os.fchmod(child_fd, mode)
+        details = os.fstat(child_fd)
+    except OSError:
+        reject("layout_configuration_failed")
+
+    if not stat.S_ISDIR(details.st_mode):
+        reject("managed_path_invalid")
+    if stat.S_IMODE(details.st_mode) != mode:
+        reject("layout_mode_invalid")
+    if (details.st_uid, details.st_gid) != (uid, gid):
+        reject("layout_owner_invalid")
+
+    attached_directories.append((parent_fd, name, child_fd))
+    return child_fd
+
+
+def verify_attached_directories():
+    for parent_fd, name, child_fd in attached_directories:
+        try:
+            linked = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            opened = os.fstat(child_fd)
+        except OSError:
+            reject("managed_path_invalid")
+
+        if not stat.S_ISDIR(linked.st_mode):
+            reject("managed_path_invalid")
+        if (linked.st_dev, linked.st_ino) != (opened.st_dev, opened.st_ino):
+            reject("managed_path_invalid")
+
+
+def validate_existing_marker(parent_fd):
+    try:
+        details = os.stat(
+            ".layout-ready", dir_fd=parent_fd, follow_symlinks=False
+        )
+    except FileNotFoundError:
+        return
+    except OSError:
+        reject("layout_marker_invalid")
+
+    if not stat.S_ISREG(details.st_mode):
+        reject("layout_marker_invalid")
+
+
+try:
+    if len(sys.argv) != 2:
+        reject("invalid_bootstrap_arguments")
+    app_name = sys.argv[1]
+
+    try:
+        srv_fd = os.open("/srv", directory_flags)
+    except OSError:
+        reject("managed_path_invalid")
+    opened_fds.append(srv_fd)
+
+    bootstrap_fd = open_directory(srv_fd, "bootstrap", 0o755, 0, 0)
+    validate_existing_marker(bootstrap_fd)
+    apps_fd = open_directory(srv_fd, "apps", 0o755, 0, 0)
+    backups_fd = open_directory(srv_fd, "backups", 0o755, 0, 0)
+    app_fd = open_directory(apps_fd, app_name, 0o750, 1000, 1000)
+    shared_fd = open_directory(app_fd, "shared", 0o750, 1000, 1000)
+    open_directory(shared_fd, "db", 0o750, 1000, 1000)
+    open_directory(backups_fd, app_name, 0o750, 0, 0)
+    verify_attached_directories()
+
+    marker_temp = f".layout-ready.tmp.{os.getpid()}.{secrets.token_hex(8)}"
+    marker_flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    marker_fd = os.open(
+        marker_temp, marker_flags, 0o600, dir_fd=bootstrap_fd
+    )
+    os.fchown(marker_fd, 0, 0)
+    os.fchmod(marker_fd, 0o644)
+    marker_details = os.fstat(marker_fd)
+    if not stat.S_ISREG(marker_details.st_mode):
+        reject("layout_marker_invalid")
+    if stat.S_IMODE(marker_details.st_mode) != 0o644:
+        reject("layout_marker_mode_invalid")
+    if (marker_details.st_uid, marker_details.st_gid) != (0, 0):
+        reject("layout_marker_owner_invalid")
+    os.fsync(marker_fd)
+    os.close(marker_fd)
+    marker_fd = None
+
+    verify_attached_directories()
+    os.rename(
+        marker_temp,
+        ".layout-ready",
+        src_dir_fd=bootstrap_fd,
+        dst_dir_fd=bootstrap_fd,
+    )
+    marker_temp = None
+    os.fsync(bootstrap_fd)
+except BootstrapFailure as error:
+    print(f"error={error.code}", file=sys.stderr)
+    sys.exit(1)
+except (IndexError, OSError):
+    print("error=layout_operation_failed", file=sys.stderr)
+    sys.exit(1)
+finally:
+    if marker_fd is not None:
+        os.close(marker_fd)
+    if marker_temp is not None and bootstrap_fd is not None:
+        try:
+            os.unlink(marker_temp, dir_fd=bootstrap_fd)
+        except FileNotFoundError:
+            pass
+    for descriptor in reversed(opened_fds):
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+PYTHON
 
 echo 'host_bootstrap=ready'
 echo 'next=bin/setup-kamal'

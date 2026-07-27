@@ -4,6 +4,7 @@ set -euo pipefail
 project_root=$(cd "$(dirname "$0")/../.." && pwd)
 temp_dir=$(mktemp -d)
 trap 'rm -rf "$temp_dir"' EXIT
+real_python=$(command -v python3)
 
 fail() {
   echo "test failure: $*" >&2
@@ -46,8 +47,11 @@ cat > "$SSH_STDIN_FILE"
 
 if [[ ${SSH_EXECUTE_REMOTE:-0} == 1 ]]; then
   [[ $1 == root@* && $2 == bash && $3 == -s && $4 == -- ]] || exit 64
-  shift 4
-  exec env BASH_ENV="$REMOTE_BASH_ENV" bash -s -- "$@" < "$SSH_STDIN_FILE"
+  shift
+  remote_command=$*
+  printf '%s\n' "$remote_command" > "$SSH_REMOTE_COMMAND_FILE"
+  exec env BASH_ENV="$REMOTE_BASH_ENV" bash -c "$remote_command" \
+    < "$SSH_STDIN_FILE"
 fi
 SSH
 
@@ -127,7 +131,7 @@ source() {
 command() {
   if [[ ${1:-} == -v ]]; then
     case "${2:-}" in
-      apt-get|systemctl)
+      apt-get|systemctl|python3)
         [[ ${MISSING_COMMAND:-} != "$2" ]]
         ;;
       docker)
@@ -180,6 +184,48 @@ printf 'docker:%s\n' "$*" >> "$EVENT_LOG"
 [[ ${FAILURE:-} != docker ]] || exit 33
 [[ ${1:-} == info ]] || exit 64
 DOCKER
+
+cat > "$temp_dir/remote-bin/python3" <<'PYTHON'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf 'python3:%s\n' "$*" >> "$EVENT_LOG"
+/bin/cat > "$MOCK_DIR/layout-helper.py"
+"$REAL_PYTHON" -m py_compile "$MOCK_DIR/layout-helper.py"
+
+if [[ ${FAILURE:-} == symlink_swap ]]; then
+  /bin/mkdir -p "$MOCK_DIR/remote-srv/apps"
+  /bin/ln -s "$MOCK_DIR/outside-target" \
+    "$MOCK_DIR/remote-srv/apps/website"
+  printf '%s\n' swapped > "$MOCK_DIR/swap-attempted"
+  echo 'error=managed_path_invalid' >&2
+  exit 37
+fi
+
+case "${FAILURE:-}" in
+  layout_install|layout_mode|layout_owner)
+    exit 34
+    ;;
+  temp_marker|temp_marker_mode|marker_move)
+    printf '%s\n' .layout-ready.tmp.fake > "$MOCK_DIR/temp-marker"
+    : > "$MOCK_DIR/temp-marker"
+    exit 35
+    ;;
+esac
+
+cat > "$MOCK_DIR/metadata" <<'METADATA'
+/srv/bootstrap|755|0:0
+/srv/apps|755|0:0
+/srv/apps/website|750|1000:1000
+/srv/apps/website/shared|750|1000:1000
+/srv/apps/website/shared/db|750|1000:1000
+/srv/backups|755|0:0
+/srv/backups/website|750|0:0
+/srv/bootstrap/.layout-ready|644|0:0
+METADATA
+printf '%s\n' ready > "$MOCK_DIR/marker"
+: > "$MOCK_DIR/temp-marker"
+PYTHON
 
 cat > "$temp_dir/remote-bin/install" <<'INSTALL'
 #!/usr/bin/env bash
@@ -336,6 +382,8 @@ reset_host() {
   : > "$temp_dir/temp-marker"
   : > "$temp_dir/events"
   : > "$temp_dir/content"
+  /bin/rm -rf "$temp_dir/remote-srv" "$temp_dir/outside-target"
+  /bin/mkdir -p "$temp_dir/remote-srv" "$temp_dir/outside-target"
   rm -f "$temp_dir/docker-installed"
 }
 
@@ -347,6 +395,7 @@ run_remote_preserving_host() {
     SSH_EXECUTE_REMOTE=1
     SSH_ARGS_FILE="$temp_dir/$name.args"
     SSH_STDIN_FILE="$temp_dir/$name.stdin"
+    SSH_REMOTE_COMMAND_FILE="$temp_dir/$name.remote-command"
     REMOTE_BASH_ENV="$temp_dir/remote-bash-env"
     MOCK_DIR="$temp_dir"
     EVENT_LOG="$temp_dir/events"
@@ -355,6 +404,7 @@ run_remote_preserving_host() {
     APP_SHARED_ROOT=/srv/apps/website/shared
     TEST_REGISTRY_SECRET=registry-secret-should-not-appear
     TEST_MASTER_SECRET=master-secret-should-not-appear
+    REAL_PYTHON="$real_python"
   )
 
   if [[ $flag == __unset__ ]]; then
@@ -412,6 +462,45 @@ for dot_segment in . ..; do
     "$temp_dir/invalid-dot-root.output"
 done
 
+injection_file="$temp_dir/injection-executed"
+# shellcheck disable=SC2016
+adversarial_roots=(
+  '/srv/apps/has space/shared'
+  '/srv/apps/$(touch${IFS}$INJECTION_FILE)/shared'
+  '/srv/apps/`touch${IFS}$INJECTION_FILE`/shared'
+  '/srv/apps/has"quote/shared'
+  "/srv/apps/has'quote/shared"
+  '/srv/apps/name;touch${IFS}$INJECTION_FILE/shared'
+  '/srv/apps/.hidden/shared'
+  '/srv/apps/hidden./shared'
+  '/srv/apps/-leading/shared'
+  '/srv/apps/trailing-/shared'
+  '/srv/apps/_leading/shared'
+  '/srv/apps/trailing_/shared'
+)
+
+adversarial_number=0
+for adversarial_root in "${adversarial_roots[@]}"; do
+  ((adversarial_number += 1))
+  adversarial_args="$temp_dir/adversarial-$adversarial_number.args"
+  if SSH_ARGS_FILE="$adversarial_args" \
+    SSH_STDIN_FILE="$temp_dir/adversarial-$adversarial_number.stdin" \
+    PATH="$temp_dir:$PATH" \
+    INJECTION_FILE="$injection_file" \
+    KAMAL_HOST=host.example.test \
+    APP_SHARED_ROOT="$adversarial_root" \
+    "$project_root/bin/bootstrap-kamal-host" \
+      > "$temp_dir/adversarial-$adversarial_number.output" 2>&1; then
+    fail "expected adversarial APP_SHARED_ROOT to fail: $adversarial_root"
+  fi
+  assert_contains 'error=invalid_app_shared_root' \
+    "$temp_dir/adversarial-$adversarial_number.output"
+  [[ ! -e $adversarial_args ]] ||
+    fail "adversarial APP_SHARED_ROOT reached SSH: $adversarial_root"
+  [[ ! -e $injection_file ]] ||
+    fail "adversarial APP_SHARED_ROOT executed a command"
+done
+
 # SSH receives only the root destination, bash command, shared root, and normalized flag.
 reset_host
 SSH_ARGS_FILE="$temp_dir/capture.args" \
@@ -432,6 +521,17 @@ for capture in "$temp_dir/capture.args" "$temp_dir/capture.stdin" "$temp_dir/cap
   assert_not_contains registry-secret-should-not-appear "$capture"
   assert_not_contains master-secret-should-not-appear "$capture"
 done
+
+# The remote script independently rejects an unsafe root before host inspection.
+if env BASH_ENV="$temp_dir/remote-bash-env" \
+  MOCK_DIR="$temp_dir" \
+  PATH="$temp_dir/remote-bin:$PATH" \
+  bash -s -- '/srv/apps/-unsafe/shared' 0 \
+    < "$temp_dir/capture.stdin" > "$temp_dir/remote-invalid.output" 2>&1; then
+  fail "expected remote APP_SHARED_ROOT validation to fail"
+fi
+assert_contains 'error=invalid_app_shared_root' "$temp_dir/remote-invalid.output"
+assert_no_mutation
 
 # Root-disk opt-in and all other preconditions run before mutation.
 assert_failed_with same-fs-unset srv_not_separate_filesystem __unset__ SAME_FILESYSTEM=1
@@ -471,6 +571,8 @@ assert_no_mutation
 assert_failed_with missing-apt host_command_missing __unset__ MISSING_COMMAND=apt-get
 assert_no_mutation
 assert_failed_with missing-systemctl host_command_missing __unset__ MISSING_COMMAND=systemctl
+assert_no_mutation
+assert_failed_with missing-python host_command_missing __unset__ MISSING_COMMAND=python3
 assert_no_mutation
 
 managed_paths=(
@@ -521,7 +623,31 @@ for failure in package_update package_install systemctl docker layout_install la
   temp_marker temp_marker_mode marker_move; do
   assert_failed_with "failure-$failure" "" __unset__ FAILURE="$failure"
   assert_marker_absent
+  [[ ! -s $temp_dir/temp-marker ]] ||
+    fail "$failure left a private temp marker"
 done
+
+# A package-time symlink swap must not reach or alter the outside target.
+reset_host
+printf '%s\n' keep-outside > "$temp_dir/outside-target/sentinel"
+chmod 0700 "$temp_dir/outside-target"
+outside_mode_before=$(stat -f '%Lp' "$temp_dir/outside-target" 2>/dev/null ||
+  stat -c '%a' "$temp_dir/outside-target")
+if run_remote_preserving_host symlink-swap __unset__ FAILURE=symlink_swap; then
+  fail "expected package-time symlink swap to fail"
+fi
+assert_contains 'error=managed_path_invalid' "$temp_dir/symlink-swap.output"
+assert_contains swapped "$temp_dir/swap-attempted"
+[[ -L $temp_dir/remote-srv/apps/website ]] ||
+  fail "fake host did not perform the deterministic symlink swap"
+assert_contains keep-outside "$temp_dir/outside-target/sentinel"
+outside_mode_after=$(stat -f '%Lp' "$temp_dir/outside-target" 2>/dev/null ||
+  stat -c '%a' "$temp_dir/outside-target")
+[[ $outside_mode_after == "$outside_mode_before" ]] ||
+  fail "descriptor helper changed outside-target mode"
+assert_marker_absent
+[[ ! -s $temp_dir/temp-marker ]] ||
+  fail "symlink swap left a private temp marker"
 
 # Successful layout is exact, and both runs preserve modeled content inside shared.
 reset_host
@@ -561,3 +687,17 @@ assert_not_contains 'resolv' "$temp_dir/capture.stdin"
 assert_not_contains 'hostname' "$temp_dir/capture.stdin"
 assert_not_contains 'kamal deploy' "$temp_dir/capture.stdin"
 assert_not_contains 'bin/deploy' "$temp_dir/capture.stdin"
+grep -Fq 'os.O_DIRECTORY' "$temp_dir/capture.stdin" ||
+  fail "descriptor helper does not require directories"
+grep -Fq 'os.O_NOFOLLOW' "$temp_dir/capture.stdin" ||
+  fail "descriptor helper follows symlinks"
+grep -Fq 'dir_fd=' "$temp_dir/capture.stdin" ||
+  fail "descriptor helper does not use relative operations"
+grep -Fq 'os.fchmod' "$temp_dir/capture.stdin" ||
+  fail "descriptor helper does not set mode through held descriptors"
+grep -Fq 'os.fchown' "$temp_dir/capture.stdin" ||
+  fail "descriptor helper does not set ownership through held descriptors"
+grep -Fq 'os.fstat' "$temp_dir/capture.stdin" ||
+  fail "descriptor helper does not verify through held descriptors"
+grep -Fq 'os.unlink(marker_temp, dir_fd=bootstrap_fd)' "$temp_dir/capture.stdin" ||
+  fail "descriptor helper does not safely clean private temp markers"
