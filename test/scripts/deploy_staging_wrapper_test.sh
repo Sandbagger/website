@@ -28,7 +28,7 @@ DEPLOY_ENV_FILE="$temp_dir/staging.env" \
 PATH="$temp_dir:$PATH" \
 "$project_root/bin/deploy" staging config
 
-grep -Fx 'ssh:root@shared-kamal-01 bash -s -- /srv/apps/website-staging/shared' "$temp_dir/events"
+grep -Fx 'ssh:root@shared-kamal-01 bash -s -- /srv/apps/website-staging/shared 0' "$temp_dir/events"
 grep -Fx 'bundle:exec kamal version' "$temp_dir/events"
 grep -Fx 'bundle:exec kamal -d staging config' "$temp_dir/events"
 

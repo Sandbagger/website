@@ -5,26 +5,29 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 
 usage() {
-  echo 'usage: bin/setup-kamal [--apply]' >&2
+  echo 'usage: bin/setup-kamal [--bootstrap-host|--apply]' >&2
 }
+
+if (( $# > 1 )); then
+  usage
+  exit 1
+fi
 
 case "${1:-}" in
   '')
-    apply=false
+    mode=validate
+    ;;
+  --bootstrap-host)
+    mode=bootstrap
     ;;
   --apply)
-    apply=true
+    mode=apply
     ;;
   *)
     usage
     exit 1
     ;;
 esac
-
-if (( $# > 1 )); then
-  usage
-  exit 1
-fi
 
 default_env_file="$HERE/.env.deploy"
 ENV_FILE="${DEPLOY_ENV_FILE:-$default_env_file}"
@@ -82,7 +85,21 @@ if (( (8#$env_mode & 8#077) != 0 )); then
   exit 2
 fi
 
-if ! "$HERE/bin/deploy-preflight"; then
+if [[ "$mode" == bootstrap ]]; then
+  exec "$HERE/bin/bootstrap-kamal-host"
+fi
+
+if preflight_output=$("$HERE/bin/deploy-preflight" 2>&1); then
+  if [[ -n "$preflight_output" ]]; then
+    printf '%s\n' "$preflight_output" >&2
+  fi
+else
+  if [[ -n "$preflight_output" ]]; then
+    printf '%s\n' "$preflight_output" >&2
+  fi
+  if grep -Fxq 'error=bootstrap_layout_not_ready' <<< "$preflight_output"; then
+    echo 'hint=run bin/setup-kamal --bootstrap-host to prepare this existing host' >&2
+  fi
   echo 'hint=repair the reported host prerequisite, then rerun bin/setup-kamal' >&2
   exit 4
 fi
@@ -93,7 +110,7 @@ if ! bundle exec kamal version >/dev/null 2>&1; then
   exit 3
 fi
 
-if [[ "$apply" == true ]]; then
+if [[ "$mode" == apply ]]; then
   echo 'About to perform the first application deployment with Kamal.'
   echo 'Later releases use bin/deploy.'
   exec "$HERE/bin/deploy" setup
