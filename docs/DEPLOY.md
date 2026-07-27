@@ -24,6 +24,10 @@ server is being reused; it is not provisioned by the current OpenTofu state.
 work around a failed preflight; repair the underlying host contract and run it
 again.
 
+The wrapper owns Kamal's destination, config file, and hook execution. Select
+staging only with the leading `staging` argument; do not pass Kamal `-d`,
+`-c`, or `-H` overrides (or their long forms) through `bin/deploy`.
+
 - `/srv/bootstrap/.layout-ready` must exist. It is the readiness marker written
   by the OpenTofu host bootstrap or the explicit existing-host bootstrap.
 - `/srv` should be a distinct durable filesystem. This remains the safe

@@ -4,56 +4,74 @@
 # Usage:  bin/deploy [staging] [kamal-subcommand ...]   (default: deploy)
 set -euo pipefail
 
-HERE=$(cd "$(dirname "$0")/.." && pwd)
-destination=""
+DEPLOY_WRAPPER_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+readonly DEPLOY_WRAPPER_ROOT
+DEPLOY_WRAPPER_DESTINATION=
 
 if [[ "${1:-}" == "staging" ]]; then
-  destination="staging"
+  DEPLOY_WRAPPER_DESTINATION=staging
   shift
 fi
+readonly DEPLOY_WRAPPER_DESTINATION
 
-if [[ -n "$destination" ]]; then
-  default_env_file="$HERE/.env.deploy.$destination"
-  handoff_service=website-staging
-  expected_shared_root=/srv/apps/website-staging/shared
+for deploy_wrapper_argument in "$@"; do
+  case "$deploy_wrapper_argument" in
+    -d|-d?*|--destination|--destination=*|\
+    -c|-c?*|--config-file|--config-file=*|\
+    -H|--skip-hooks|--skip-hooks=*)
+      printf 'error=unsupported_kamal_option option=%s\n' \
+        "$deploy_wrapper_argument" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -n "$DEPLOY_WRAPPER_DESTINATION" ]]; then
+  DEPLOY_WRAPPER_DEFAULT_ENV_FILE="$DEPLOY_WRAPPER_ROOT/.env.deploy.staging"
+  DEPLOY_WRAPPER_HANDOFF_SERVICE=website-staging
+  DEPLOY_WRAPPER_EXPECTED_SHARED_ROOT=/srv/apps/website-staging/shared
 else
-  default_env_file="$HERE/.env.deploy"
-  handoff_service=website
-  expected_shared_root=/srv/apps/website/shared
+  DEPLOY_WRAPPER_DEFAULT_ENV_FILE="$DEPLOY_WRAPPER_ROOT/.env.deploy"
+  DEPLOY_WRAPPER_HANDOFF_SERVICE=website
+  DEPLOY_WRAPPER_EXPECTED_SHARED_ROOT=/srv/apps/website/shared
 fi
+readonly DEPLOY_WRAPPER_DEFAULT_ENV_FILE
+readonly DEPLOY_WRAPPER_HANDOFF_SERVICE
+readonly DEPLOY_WRAPPER_EXPECTED_SHARED_ROOT
 
-ENV_FILE="${DEPLOY_ENV_FILE:-$default_env_file}"
+DEPLOY_WRAPPER_ENV_PATH="${DEPLOY_ENV_FILE:-$DEPLOY_WRAPPER_DEFAULT_ENV_FILE}"
+readonly DEPLOY_WRAPPER_ENV_PATH
 
-if [[ ! -f $ENV_FILE ]]; then
-  echo "error=missing_env_file path=$ENV_FILE" >&2
-  echo "hint=dotfiles-hetzner-tf handoff $handoff_service --format env > $default_env_file" >&2
+if [[ ! -f $DEPLOY_WRAPPER_ENV_PATH ]]; then
+  echo "error=missing_env_file path=$DEPLOY_WRAPPER_ENV_PATH" >&2
+  echo "hint=dotfiles-hetzner-tf handoff $DEPLOY_WRAPPER_HANDOFF_SERVICE --format env > $DEPLOY_WRAPPER_DEFAULT_ENV_FILE" >&2
   exit 1
 fi
 
 set -a
 # shellcheck disable=SC1090
-source "$ENV_FILE"
+source "$DEPLOY_WRAPPER_ENV_PATH"
 set +a
 
-required=(KAMAL_HOST APP_SHARED_ROOT)
-missing=()
-for var in "${required[@]}"; do
-  if [[ -z "${!var:-}" ]]; then
-    missing+=("$var")
+required_vars=(KAMAL_HOST APP_SHARED_ROOT)
+missing_vars=()
+for required_var in "${required_vars[@]}"; do
+  if [[ -z "${!required_var:-}" ]]; then
+    missing_vars+=("$required_var")
   fi
 done
-if (( ${#missing[@]} > 0 )); then
-  echo "error=missing_vars vars=${missing[*]}" >&2
-  echo "hint=edit $ENV_FILE in place; do not regenerate or overwrite it" >&2
+if (( ${#missing_vars[@]} > 0 )); then
+  echo "error=missing_vars vars=${missing_vars[*]}" >&2
+  echo "hint=edit $DEPLOY_WRAPPER_ENV_PATH in place; do not regenerate or overwrite it" >&2
   exit 2
 fi
 
-if [[ "$APP_SHARED_ROOT" != "$expected_shared_root" ]]; then
-  echo "error=unexpected_app_shared_root expected=$expected_shared_root" >&2
+if [[ "$APP_SHARED_ROOT" != "$DEPLOY_WRAPPER_EXPECTED_SHARED_ROOT" ]]; then
+  echo "error=unexpected_app_shared_root expected=$DEPLOY_WRAPPER_EXPECTED_SHARED_ROOT" >&2
   exit 2
 fi
 
-"$HERE/bin/deploy-preflight"
+"$DEPLOY_WRAPPER_ROOT/bin/deploy-preflight"
 
 if ! bundle exec kamal version >/dev/null 2>&1; then
   echo "error=kamal_not_found" >&2
@@ -65,8 +83,8 @@ if (( $# == 0 )); then
   set -- deploy
 fi
 
-if [[ -n "$destination" ]]; then
-  exec bundle exec kamal -d "$destination" "$@"
+if [[ -n "$DEPLOY_WRAPPER_DESTINATION" ]]; then
+  exec bundle exec kamal -d "$DEPLOY_WRAPPER_DESTINATION" "$@"
 else
   exec bundle exec kamal "$@"
 fi
