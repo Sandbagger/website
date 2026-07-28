@@ -147,3 +147,11 @@ fi
 grep -Fx \
   "hint=edit $temp_dir/missing-var.env in place; do not regenerate or overwrite it" \
   "$temp_dir/missing-var.out"
+
+secrets_file="$project_root/.kamal/secrets"
+if [[ ! -f "$secrets_file" ]]; then
+  echo 'expected a Kamal secret source file' >&2
+  exit 1
+fi
+grep -Fx 'KAMAL_REGISTRY_PASSWORD=$KAMAL_REGISTRY_PASSWORD' "$secrets_file"
+grep -Fx 'RAILS_MASTER_KEY=$RAILS_MASTER_KEY' "$secrets_file"
