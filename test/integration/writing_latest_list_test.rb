@@ -5,7 +5,7 @@ class WritingLatestListTest < ActionDispatch::IntegrationTest
     path = "/writing/markdown-in-rails-with-phlex-and-sitepress"
     get path
     assert_response :success
-    assert_includes @response.body, "Latest"
+    assert_includes @response.body, "More writing"
     assert_not_includes @response.body, %(href="#{path}")
   end
 end

@@ -11,8 +11,4 @@ class PhlexMarkdownComponent < Phlex::Markdown
       super
     end
   end
-
-  def ul
-    super(class: 'bullet')
-  end
 end
