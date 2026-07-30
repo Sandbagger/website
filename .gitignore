@@ -86,3 +86,6 @@ yarn-debug.log*
 
 # Isolated Git worktrees used for parallel development.
 /.worktrees/
+
+# Local visual-design exploration artifacts.
+/.superpowers/
