@@ -28,4 +28,11 @@ class ArticleLayoutTest < ActionDispatch::IntegrationTest
     assert_select "header.article-header > p", 0
     assert_select "article.prose", text: /prompted me to write this/
   end
+
+  test "article prose is labelled by its title" do
+    get PATH
+
+    assert_select "h1#article-title", text: "Michael Pettis on Good Tariffs vs Bad"
+    assert_select "article.prose[aria-labelledby='article-title']", 1
+  end
 end

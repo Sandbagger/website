@@ -71,7 +71,7 @@ class ApplicationLayout < ApplicationView
   end
 
   def page_metadata(topic: nil, publish_at: nil)
-    @page_metadata = {topic:, publish_at:}.compact
+    @page_metadata = {topic:, publish_at:}.compact_blank
   end
   # standard:enable Style/TrivialAccessors
 
@@ -98,7 +98,7 @@ class ApplicationLayout < ApplicationView
     header(class: article_header_classes) do
       div do
         article_metadata
-        h1 { @page_title } if @page_title
+        h1(id: "article-title") { @page_title } if @page_title
       end
 
       if @cover_image
@@ -111,7 +111,7 @@ class ApplicationLayout < ApplicationView
     div(class: ["article-shell", "center", @page_metadata.any? ? nil : "article-shell--single"]) do
       article_facts if @page_metadata.any?
 
-      article(class: "prose flow") do
+      article(class: "prose flow", aria: (@page_title ? {labelledby: "article-title"} : nil)) do
         raw @markdown if @markdown
       end
     end
