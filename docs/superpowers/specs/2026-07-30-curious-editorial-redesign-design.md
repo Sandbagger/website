@@ -153,11 +153,11 @@ No generated table of contents, reading-time estimator, footnote system, or marg
 
 ## About Page
 
-The About page receives the same narrow prose treatment. Its copy should mention William’s background in international relations as context for his interdisciplinary interests, not as a homepage credential.
+The About page receives the same narrow prose treatment. It retains the phrase “Brit in Brussels” as a concise, personal description. Its copy should also mention William’s background in international relations as context for his interdisciplinary interests, not as a homepage credential.
 
 The copy should communicate:
 
-- William is a software engineer based in Brussels.
+- William is a “Brit in Brussels” and a software engineer.
 - He has a master’s degree in international relations.
 - He is exploring practical agentic systems and smaller language models.
 - He is developing writing around political economy, macroeconomics, and European technology.
