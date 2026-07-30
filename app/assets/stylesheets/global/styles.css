@@ -34,7 +34,6 @@ a {
   text-decoration-color: var(--color-coral);
   text-decoration-thickness: 2px;
   text-underline-offset: 0.22em;
-  text-decoration-style: dashed;
 }
 
 a:hover {
@@ -67,7 +66,7 @@ blockquote {
   padding: var(--space-m);
   border: 0;
   background: var(--color-paper-deep);
-  box-shadow: inset 4px 0 var(--color-coral);
+  box-shadow: inset 4px 0 0 var(--color-coral);
   font-family: var(--font-display);
   font-size: 1.12em;
   font-style: italic;
@@ -95,5 +94,5 @@ code {
 pre code {
   padding: 0;
   background: transparent;
-  font: inherit;
+  font-size: inherit;
 }

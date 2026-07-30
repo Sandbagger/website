@@ -4,6 +4,7 @@ class CssArchitectureTest < ActiveSupport::TestCase
   APPLICATION_CSS = Rails.root.join("app/assets/stylesheets/application.css")
   VARIABLES_CSS = Rails.root.join("app/assets/stylesheets/global/variables.css")
   RESET_CSS = Rails.root.join("app/assets/stylesheets/global/reset.css")
+  GLOBAL_STYLES_CSS = Rails.root.join("app/assets/stylesheets/global/styles.css")
 
   test "application imports each CUBE layer once and in order" do
     imports = File.read(APPLICATION_CSS).scan(/@import url\(["']([^"']+)["']\);/).flatten
@@ -31,5 +32,15 @@ class CssArchitectureTest < ActiveSupport::TestCase
 
   test "reset does not add body padding" do
     refute_match(/body\s*\{[^}]*padding:/m, File.read(RESET_CSS))
+  end
+
+  test "editorial base styles keep link and code treatments precise" do
+    styles = File.read(GLOBAL_STYLES_CSS)
+    pre_code = styles.match(/pre code\s*\{([^}]*)\}/m)[1]
+
+    refute_match(/^a\s*\{[^}]*text-decoration-style:\s*dashed;/m, styles)
+    assert_includes styles, "box-shadow: inset 4px 0 0 var(--color-coral);"
+    assert_includes pre_code, "font-size: inherit;"
+    refute_includes pre_code, "font: inherit;"
   end
 end
