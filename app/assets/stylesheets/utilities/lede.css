@@ -1,10 +1,10 @@
-
 .lede {
+  max-width: 44ch;
+  font-family: var(--font-display);
   font-size: var(--size-step-1);
-  font-style: italic;
-  max-width: 50ch;
+  line-height: 1.45;
 }
 
 .lede + * {
-  --flow-space: 2em;
+  --flow-space: var(--space-l);
 }

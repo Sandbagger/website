@@ -1,8 +1,8 @@
 .box {
   padding: var(--s1);
-  border:  var(--border-thin) solid;
-  color: var(--color-dark);
-  background-color: var(--color-light);
+  border: var(--border-thin) solid;
+  color: var(--color-ink);
+  background-color: var(--color-paper);
 }
 
 .box * {
@@ -10,6 +10,6 @@
 }
 
 .box.invert {
-  color: var(--color-light);
-  background-color: var(--color-dark);
+  color: var(--color-paper);
+  background-color: var(--color-ink);
 }

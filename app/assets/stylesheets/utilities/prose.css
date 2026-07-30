@@ -1,3 +1,25 @@
 .prose {
-  --flow-space: var(--size-step-3);
+  --flow-space: 1.25em;
+  min-width: 0;
+  max-width: var(--measure-reading);
+}
+
+.prose h2,
+.prose h3 {
+  --flow-space: 2.2em;
+}
+
+.prose h2 + *,
+.prose h3 + * {
+  --flow-space: 0.65em;
+}
+
+.prose h2::before {
+  content: "§ ";
+  color: var(--color-coral);
+}
+
+.prose a,
+.prose code {
+  overflow-wrap: anywhere;
 }

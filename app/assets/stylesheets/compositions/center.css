@@ -1,5 +1,7 @@
 .center {
-  box-sizing: content-box;
+  width: min(
+    calc(100% - (2 * var(--gutter))),
+    var(--measure, var(--measure-wide))
+  );
   margin-inline: auto;
-  max-inline-size: 60ch;
 }

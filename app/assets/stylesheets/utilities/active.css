@@ -1,3 +1,5 @@
 .active {
-  text-decoration-style: solid
+  text-decoration-color: var(--color-coral);
+  text-decoration-style: solid;
+  text-decoration-thickness: 3px;
 }

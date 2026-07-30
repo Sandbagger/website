@@ -1,7 +1,7 @@
 @font-face {
-  font-family: "Space Mono", monospace;
+  font-family: "Space Mono";
   font-style: normal;
   font-weight: 400;
-  font-display: block;
-  src: url("/SpaceMono-Regular");
+  font-display: swap;
+  src: url("/SpaceMono-Regular.ttf") format("truetype");
 }
