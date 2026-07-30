@@ -75,6 +75,8 @@ class CollectionComponent < ApplicationComponent
   end
 
   def rows(resources)
+    return if resources.empty?
+
     ol(class: "article-list", role: "list") do
       resources.each do |resource|
         li(class: "article-row") do
@@ -98,7 +100,7 @@ class CollectionComponent < ApplicationComponent
   def formatted_topic(topic)
     return if topic.blank?
 
-    topic.split(",").map(&:strip).join(" · ")
+    topic.to_s.split(",").map(&:strip).join(" · ")
   end
 
   def formatted_date(date)
@@ -106,7 +108,7 @@ class CollectionComponent < ApplicationComponent
   end
 
   def resource_title(resource)
-    resource.data.fetch("title", resource.request_path)
+    resource.data["title"].presence || resource.request_path
   end
 
   def section_classes

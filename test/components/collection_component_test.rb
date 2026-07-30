@@ -34,6 +34,15 @@ class CollectionComponentTest < ActiveSupport::TestCase
     assert_nil document.at_css(".writing-feature img")
   end
 
+  test "home with only a feature omits an empty article list" do
+    document = render_component(
+      [resource("/writing/one-note", "One note")],
+      context: :home
+    )
+
+    assert_nil document.at_css("ol.article-list")
+  end
+
   test "missing topic and date produce a title link without placeholders" do
     document = render_component(
       [resource("/writing/title-only", "Title only")],
@@ -42,6 +51,30 @@ class CollectionComponentTest < ActiveSupport::TestCase
 
     assert_equal "Title only", document.at_css(".article-row h3 a").text
     assert_nil document.at_css(".article-row .article-meta")
+  end
+
+  test "blank titles fall back to request paths in titles and aria labels" do
+    document = render_component(
+      [
+        resource("/writing/nil-title", nil),
+        resource("/writing/blank-title", "   ")
+      ],
+      context: :archive
+    )
+
+    assert_equal ["/writing/nil-title", "/writing/blank-title"],
+      document.css(".article-row h3 a").map(&:text)
+    assert_equal ["Read /writing/nil-title", "Read /writing/blank-title"],
+      document.css(".article-row > a").map { |link| link["aria-label"] }
+  end
+
+  test "numeric topics render as metadata" do
+    document = render_component(
+      [Resource.new("/writing/numeric-topic", {"title" => "Numeric", "topic" => 37})],
+      context: :archive
+    )
+
+    assert_equal "37", document.at_css(".article-meta").text
   end
 
   private
