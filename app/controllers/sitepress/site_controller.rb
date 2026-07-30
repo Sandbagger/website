@@ -1,28 +1,52 @@
 module Sitepress
   class SiteController < ::ApplicationController
     include Sitepress::SitePages
+    include PostCoverHelper
     layout false
 
     protected
 
     # default if no layout is specified in frontmatter
     def default_layout(page)
-      title = page.data["title"].presence || page.try(:title).presence || page.request_path.titleize
+      article = writing_post?(page)
+
       ApplicationLayout.new.tap do |layout|
+        layout.page_kind(article ? :article : :default)
+        layout.page_title(page_title_for(page))
+        if article
+          layout.page_metadata(
+            topic: page.data["topic"],
+            publish_at: page.data["publish_at"]
+          )
+        end
         attach_cover(layout, page)
-        layout.page_title(title)
         layout.markdown(render_resource_inline(page))
-        layout.partial(CollectionComponent.new(published)) if writing_post?(page)
+        if article
+          layout.partial(
+            CollectionComponent.new(published, context: :article)
+          )
+        end
+      end
+    end
+
+    def home_layout(page)
+      ApplicationLayout.new.tap do |layout|
+        layout.page_kind(:home)
+        layout.markdown(render_resource_inline(page))
+        layout.partial(
+          CollectionComponent.new(published, context: :home)
+        )
       end
     end
 
     def writing_layout(page)
-      title = page.data["title"].presence || page.try(:title).presence || page.request_path.titleize
       ApplicationLayout.new.tap do |layout|
-        attach_cover(layout, page)
-        layout.page_title(title)
+        layout.page_kind(:archive)
+        layout.page_title(page_title_for(page))
         layout.markdown(render_resource_inline(page))
-        layout.partial(CollectionComponent.new(published))
+        layout.partial(
+          CollectionComponent.new(published, context: :archive)
+        )
       end
     end
 
@@ -36,22 +60,15 @@ module Sitepress
       render_to_string inline: resource.body, type: resource.handler
     end
 
-    def cover_slug_for(page)
-      path = page.try(:logical_path) || page.request_path
-      pn = Pathname(path)
-      # Strip multiple extensions like .html.markerb
-      while (ext = pn.extname) && !ext.empty?
-        pn = pn.sub_ext("")
-      end
-      pn.basename.to_s
+    def page_title_for(page)
+      page.data["title"].presence ||
+        page.try(:title).presence ||
+        page.request_path.titleize
     end
 
     def attach_cover(layout, page)
-      slug = cover_slug_for(page)
-      cover = Rails.root.join("public/images/posts/#{slug}.svg")
-      return unless File.exist?(cover)
-
-      layout.cover_image("/images/posts/#{slug}.svg", alt: page.data["title"])
+      src = post_cover_path(page)
+      layout.cover_image(src, alt: "") if src
     end
 
     # parses frontmatter for layout

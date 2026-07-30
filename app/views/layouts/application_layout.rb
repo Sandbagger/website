@@ -9,6 +9,8 @@ class ApplicationLayout < ApplicationView
     @partials = []
     @cover_image = nil
     @page_title = nil
+    @page_kind = :default
+    @page_metadata = {}
   end
 
   def view_template
@@ -42,7 +44,7 @@ class ApplicationLayout < ApplicationView
       body do
         render NavComponent.new
 
-        main(class: "site-main") do
+        main(class: ["site-main", "page--#{@page_kind}"]) do
           div(class: "page-content center flow") do
             if @cover_image
               img(src: @cover_image[:src], alt: @cover_image[:alt], class: "cover")
@@ -70,6 +72,14 @@ class ApplicationLayout < ApplicationView
 
   def page_title(title)
     @page_title = title
+  end
+
+  def page_kind(kind)
+    @page_kind = kind.to_sym
+  end
+
+  def page_metadata(topic: nil, publish_at: nil)
+    @page_metadata = {topic:, publish_at:}.compact
   end
   # standard:enable Style/TrivialAccessors
 
