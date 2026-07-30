@@ -4,29 +4,29 @@ class NavComponent < ApplicationComponent
   include PageHelper
 
   def view_template
-    nav do
-      ul(class: 'cluster') do
-        h3 { 'William Neal' }
+    header(class: "site-header") do
+      div(class: "center cluster-around") do
+        link_to "William Neal", "/", class: "wordmark",
+          aria: {label: "William Neal, home"}
 
-        ul(class: 'cluster', role: 'list') do
-          li do
-            link_to_page(Sitepress.site.get('/'))
-          end
-
-          li do
-            link_to_page(Sitepress.site.get('/about'))
-          end
-
-          li do
-            link_to 'Toots', 'https://ruby.social/@Sandbagger', target: '_blank', rel: 'noopener noreferrer me'
-          end
-
-          li do
-            link_to 'Skeets', 'https://bsky.app/profile/williamneal.bsky.social', target: '_blank',
-                                                                                  rel: 'noopener noreferrer me'
+        nav(aria_label: "Primary") do
+          ul(class: "cluster", role: "list") do
+            navigation_resources.each do |resource|
+              li { link_to_page(resource) }
+            end
           end
         end
       end
     end
+  end
+
+  private
+
+  def navigation_resources
+    [
+      Sitepress.site.get("/"),
+      Sitepress.site.get("/writing"),
+      Sitepress.site.get("/about")
+    ]
   end
 end

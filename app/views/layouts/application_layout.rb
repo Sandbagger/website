@@ -14,66 +14,73 @@ class ApplicationLayout < ApplicationView
   def view_template
     doctype
 
-    html do
+    html(lang: "en") do
       head do
-        title { 'William Neal' }
-        meta name: 'viewport', content: 'width=device-width,initial-scale=1'
-        meta name: 'referrer', content: 'strict-origin-when-cross-origin'
+        title { "William Neal" }
+        meta name: "viewport", content: "width=device-width,initial-scale=1"
+        meta name: "referrer", content: "strict-origin-when-cross-origin"
         csp_meta_tag
         csrf_meta_tags
-        stylesheet_link_tag 'application', data_turbo_track: 'reload'
-        javascript_include_tag 'application', data_turbo_track: 'reload', defer: true
+        stylesheet_link_tag "application", data_turbo_track: "reload"
+        javascript_include_tag "application", data_turbo_track: "reload", defer: true
         link(
-          rel: 'apple-touch-icon',
-          sizes: '180x180',
-          href: '/apple-touch-icon.png'
+          rel: "apple-touch-icon",
+          sizes: "180x180",
+          href: "/apple-touch-icon.png"
         )
         link(
-          rel: 'icon',
-          type: 'image/png',
-          sizes: '16x16',
-          href: '/favicon-16x16.png'
+          rel: "icon",
+          type: "image/png",
+          sizes: "16x16",
+          href: "/favicon-16x16.png"
         )
-        link(rel: 'manifest', href: '/site.webmanifest')
-        link(rel: 'mask-icon', href: '/safari-pinned-tab.svg', color: '#61b9d2')
-        link(rel: 'alternate', type: 'application/rss+xml', title: "William Neal's RSS feed", href: 'https://williamneal.dev/feed')
-        style { ".cover { width: 100%; height: auto; border-radius: 12px; margin-bottom: 1.5rem; display: block; }" }
+        link(rel: "manifest", href: "/site.webmanifest")
+        link(rel: "mask-icon", href: "/safari-pinned-tab.svg", color: "#61b9d2")
+        link(rel: "alternate", type: "application/rss+xml", title: "William Neal's RSS feed", href: "https://williamneal.dev/feed")
       end
 
-      render NavComponent.new
+      body do
+        render NavComponent.new
 
-      body(class: 'center') do
-        main(class: 'flow') do
-          if @cover_image
-            img(src: @cover_image[:src], alt: @cover_image[:alt], class: "cover")
-            h1(class: "sr-only") { @page_title } if @page_title
-          elsif @page_title
-            h1 { @page_title }
-          end
+        main(class: "site-main") do
+          div(class: "page-content center flow") do
+            if @cover_image
+              img(src: @cover_image[:src], alt: @cover_image[:alt], class: "cover")
+            end
+            h1 { @page_title } if @page_title
 
-          raw @markdown if @markdown
-          @partials.each do |partial|
-            render partial
+            raw @markdown if @markdown
+            render_partials
           end
         end
+
+        render FooterComponent.new
       end
     end
-  end
-
-  def markdown(md)
-    @markdown = md
   end
 
   def cover_image(src, alt: nil)
     @cover_image = {src:, alt:}
   end
 
+  # standard:disable Style/TrivialAccessors
+  def markdown(md)
+    @markdown = md
+  end
+
   def page_title(title)
     @page_title = title
   end
+  # standard:enable Style/TrivialAccessors
 
   def partial(component)
     @partials ||= []
     @partials << component
+  end
+
+  private
+
+  def render_partials
+    @partials.each { |partial| render partial }
   end
 end
