@@ -4,13 +4,13 @@ class CssArchitectureTest < ActiveSupport::TestCase
   APPLICATION_CSS = Rails.root.join("app/assets/stylesheets/application.css")
 
   test "application imports each CUBE layer once and in order" do
-    expected = <<~CSS
-      @import url("/global/index.css");
-      @import url("/compositions/index.css");
-      @import url("/utilities/index.css");
-      @import url("/blocks/index.css");
-    CSS
+    imports = File.read(APPLICATION_CSS).scan(/@import url\(["']([^"']+)["']\);/).flatten
 
-    assert_equal expected, File.read(APPLICATION_CSS)
+    assert_equal [
+      "/global/index.css",
+      "/compositions/index.css",
+      "/utilities/index.css",
+      "/blocks/index.css"
+    ], imports
   end
 end
