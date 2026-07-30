@@ -3,10 +3,20 @@ title: Home
 layout: home
 ---
 
-A home on the internet for my bloviating
+<section class="home-hero">
+  <div class="home-intro">
+    <p class="eyebrow">From Brussels, with questions</p>
+    <h1>Thinking in systems.</h1>
+    <p class="lede">I’m William, a software engineer writing about building software, political economy, and the questions that sit between them.</p>
+  </div>
 
-<ul class='bullet' role="list">
-  <li style="--symbol: '🦄 '">Tech</li>
-  <li style="--symbol: '🏦 '">Macro</li>
-  <li style="--symbol: '🏛 '">Politics</li>
-</ul>
+  <aside class="interests" aria-labelledby="interests-heading">
+    <h2 class="eyebrow" id="interests-heading">Currently exploring</h2>
+    <ul role="list">
+      <li>Agentic workflows</li>
+      <li>Smaller language models</li>
+      <li>European technology</li>
+      <li>Macroeconomic imbalances</li>
+    </ul>
+  </aside>
+</section>
