@@ -71,9 +71,8 @@ The primary navigation contains:
 - Home
 - Writing
 - About
-- Elsewhere
 
-“Elsewhere” groups or exposes the existing Mastodon and Bluesky links. RSS remains available in the footer. External destinations retain appropriate `target` and `rel` attributes.
+The existing Mastodon and Bluesky destinations move to clearly labeled footer links alongside RSS. External destinations retain appropriate `target` and `rel` attributes. The redesign does not add an “Elsewhere” page, dropdown, or scripted navigation control.
 
 The shared page shell contains a semantic header, navigation, main region, and footer inside the document body.
 
@@ -114,7 +113,7 @@ The latest published resource is visually featured using its existing generated 
 
 It does not automatically extract an excerpt from Markdown and does not require a new summary field.
 
-The next published resources appear as compact rows with the same available metadata. A link leads to the complete Writing archive.
+The next three published resources appear as compact rows with the same available metadata. A link leads to the complete Writing archive. When fewer than four published resources exist, the component renders only the resources available.
 
 If the latest resource has no cover, the feature becomes a text-led article with the same border and spacing treatment. If no published resources exist, the section renders a quiet empty state instead of failing.
 
@@ -132,10 +131,9 @@ The article header contains:
 
 - Available topic and publication date metadata.
 - A large serif title.
-- Existing leading copy supplied by the article itself.
 - The generated cover when present.
 
-The application does not generate or duplicate a lede from arbitrary Markdown. Existing content flows directly into the article body.
+The application does not generate, extract, or duplicate a lede from arbitrary Markdown. Existing introductory copy flows directly into the article body beneath the header.
 
 ### Reading Layout
 
@@ -272,7 +270,7 @@ Implementation is complete only when:
 - Existing Rails tests pass.
 - Integration tests confirm valid document ordering and the shared landmarks.
 - Navigation tests confirm the active link and `aria-current`.
-- Collection tests cover homepage feature selection, descending order, article exclusion, and missing metadata.
+- Collection tests cover homepage feature selection, the three-row limit, descending order, article exclusion, and missing metadata.
 - Page smoke tests still render every Sitepress HTML resource successfully.
 - CSS assets resolve through Propshaft in development and test.
 - Ruby changes pass StandardRB.
