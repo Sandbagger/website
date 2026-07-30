@@ -9,7 +9,7 @@ class SiteChromeTest < ActionDispatch::IntegrationTest
     assert_select "body > main.site-main", 1
     assert_select "body > footer.site-footer", 1
     assert_select "nav[aria-label='Primary']", 1
-    assert_select "nav ul > h1, nav ul > h2, nav ul > h3", 0
+    assert_select "nav ul > h1, nav ul > h2, nav ul > h3, nav ul > h4, nav ul > h5, nav ul > h6", 0
     assert_select "nav ul > ul", 0
   end
 
@@ -34,8 +34,8 @@ class SiteChromeTest < ActionDispatch::IntegrationTest
 
     assert_select "footer" do
       assert_select "a[href='/feed']", text: "RSS"
-      assert_select "a[href='https://ruby.social/@Sandbagger'][rel~='me'][rel~='noopener'][rel~='noreferrer']", text: "Mastodon"
-      assert_select "a[href='https://bsky.app/profile/williamneal.bsky.social'][rel~='me'][rel~='noopener'][rel~='noreferrer']", text: "Bluesky"
+      assert_select "a[href='https://ruby.social/@Sandbagger'][target='_blank'][rel~='me'][rel~='noopener'][rel~='noreferrer']", text: "Mastodon"
+      assert_select "a[href='https://bsky.app/profile/williamneal.bsky.social'][target='_blank'][rel~='me'][rel~='noopener'][rel~='noreferrer']", text: "Bluesky"
     end
   end
 end
