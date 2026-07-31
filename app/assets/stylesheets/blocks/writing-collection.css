@@ -5,7 +5,7 @@
 }
 
 .collection-header {
-  margin-bottom: var(--space-l);
+  margin-bottom: var(--space-m);
 }
 
 .collection-header h2 {
@@ -13,7 +13,7 @@
   font-size: var(--size-step-3);
 }
 
-.collection-header a,
+.collection-header > a,
 .article-row > a {
   font-family: var(--font-mono);
   font-size: var(--size-step--1);
@@ -23,7 +23,7 @@
 
 .writing-collection--home {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.75fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.75fr);
   gap: var(--space-l);
 }
 
@@ -34,7 +34,7 @@
 .writing-feature__cover {
   display: block;
   overflow: hidden;
-  margin: 0;
+  margin-bottom: var(--space-m);
   border: 2px solid var(--color-ink);
 }
 
@@ -92,7 +92,7 @@
 }
 
 .writing-collection--archive > h2 {
-  margin: 0 0 var(--space-l);
+  margin-bottom: var(--space-m);
   font-size: var(--size-step-3);
 }
 

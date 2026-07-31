@@ -18,7 +18,7 @@
   transform: rotate(10deg);
 }
 
-.home-hero h1 {
+.home-intro h1 {
   max-width: 12ch;
   margin-block: var(--space-s) var(--space-m);
   font-size: var(--size-step-4);
@@ -34,7 +34,6 @@
   background: var(--color-blush);
   font-family: var(--font-mono);
   font-size: var(--size-step--1);
-  font-style: normal;
   font-weight: 400;
   letter-spacing: 0.07em;
   line-height: 1.25;

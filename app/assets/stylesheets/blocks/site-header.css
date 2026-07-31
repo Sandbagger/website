@@ -8,7 +8,6 @@
 }
 
 .wordmark {
-  display: block;
   font-family: var(--font-display);
   font-size: var(--size-step-1);
   font-weight: 700;
@@ -17,7 +16,7 @@
 }
 
 .site-header nav ul {
-  gap: clamp(0.75rem, 2vw, 1.4rem);
+  --space: clamp(0.75rem, 2vw, 1.4rem);
   margin: 0;
   padding: 0;
   font-family: var(--font-mono);
