@@ -1,7 +1,6 @@
-.bullet > * {
-  list-style: none;
-}
-
-.bullet > ::before {
-  content: var(--symbol, '🦄 ');
-}
+@import url("page.css");
+@import url("site-header.css");
+@import url("home.css");
+@import url("writing-collection.css");
+@import url("article.css");
+@import url("site-footer.css");

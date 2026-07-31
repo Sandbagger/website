@@ -1,0 +1,108 @@
+.writing-collection {
+  --measure: var(--measure-wide);
+  padding-block: var(--space-l) var(--space-xl);
+  border-top: var(--border-strong) solid var(--color-ink);
+}
+
+.collection-header {
+  margin-bottom: var(--space-l);
+}
+
+.collection-header h2 {
+  margin: 0;
+  font-size: var(--size-step-3);
+}
+
+.collection-header a,
+.article-row > a {
+  font-family: var(--font-mono);
+  font-size: var(--size-step--1);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.writing-collection--home {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.75fr);
+  gap: var(--space-l);
+}
+
+.writing-collection--home .collection-header {
+  grid-column: 1 / -1;
+}
+
+.writing-feature__cover {
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  border: 2px solid var(--color-ink);
+}
+
+.writing-feature__cover img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.writing-feature h3 {
+  max-width: 19ch;
+  margin-block: var(--space-xs) 0;
+  font-size: var(--size-step-2);
+}
+
+.writing-feature--text-only {
+  padding: var(--space-l);
+  border: 2px solid var(--color-ink);
+}
+
+.writing-feature h3 a,
+.article-row h3 a {
+  text-decoration: none;
+}
+
+.article-meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--size-step--1);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.article-list {
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--color-ink);
+}
+
+.article-row {
+  padding-block: var(--space-s) var(--space-m);
+  border-bottom: 2px solid var(--color-ink);
+}
+
+.article-row h3 {
+  margin-block: var(--space-xs);
+}
+
+.writing-collection--archive .article-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--space-l);
+  row-gap: 0;
+}
+
+.writing-collection--archive > h2 {
+  margin: 0 0 var(--space-l);
+  font-size: var(--size-step-3);
+}
+
+.writing-collection--more {
+  margin-top: var(--space-xl);
+}
+
+@media (max-width: 48rem) {
+  .writing-collection--home,
+  .writing-collection--archive .article-list {
+    grid-template-columns: 1fr;
+  }
+}

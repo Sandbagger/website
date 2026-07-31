@@ -1,0 +1,18 @@
+.site-main {
+  flex: 1;
+}
+
+.page-content {
+  --measure: var(--measure-reading);
+  padding-block: var(--space-xl);
+}
+
+.page--home .page-content,
+.page--archive .page-content {
+  --measure: var(--measure-wide);
+}
+
+.page--default .page-content > h1,
+.page--archive .page-content > h1 {
+  margin-bottom: var(--space-l);
+}

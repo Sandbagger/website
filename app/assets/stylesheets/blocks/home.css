@@ -1,0 +1,75 @@
+.home-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.65fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: end;
+  padding-block: clamp(4.5rem, 10vw, 8rem);
+}
+
+.home-hero::after {
+  position: absolute;
+  top: 18%;
+  right: 3%;
+  color: var(--color-coral);
+  content: "✦";
+  font-size: clamp(2.4rem, 5vw, 4.7rem);
+  line-height: 1;
+  transform: rotate(10deg);
+}
+
+.home-hero h1 {
+  max-width: 12ch;
+  margin-block: var(--space-s) var(--space-m);
+  font-size: var(--size-step-4);
+  letter-spacing: -0.055em;
+  line-height: 0.9;
+}
+
+.eyebrow {
+  display: inline-block;
+  width: fit-content;
+  margin: 0;
+  padding: 0.22rem 0.45rem;
+  background: var(--color-blush);
+  font-family: var(--font-mono);
+  font-size: var(--size-step--1);
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.07em;
+  line-height: 1.25;
+  text-transform: uppercase;
+  transform: rotate(-1deg);
+}
+
+.interests {
+  padding-top: var(--space-s);
+  border-top: 2px solid var(--color-ink);
+}
+
+.interests ul {
+  margin: var(--space-s) 0 0;
+  padding: 0;
+}
+
+.interests li {
+  padding-block: var(--space-xs);
+  border-bottom: var(--border-thin) solid var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+}
+
+@media (max-width: 48rem) {
+  .home-hero {
+    grid-template-columns: 1fr;
+    padding-block: var(--space-xl);
+  }
+
+  .home-hero::after {
+    top: 2rem;
+  }
+
+  .interests {
+    width: min(100%, 28rem);
+  }
+}

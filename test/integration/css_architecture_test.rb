@@ -2,6 +2,7 @@ require "test_helper"
 
 class CssArchitectureTest < ActiveSupport::TestCase
   APPLICATION_CSS = Rails.root.join("app/assets/stylesheets/application.css")
+  BLOCKS_INDEX = Rails.root.join("app/assets/stylesheets/blocks/index.css")
   VARIABLES_CSS = Rails.root.join("app/assets/stylesheets/global/variables.css")
   RESET_CSS = Rails.root.join("app/assets/stylesheets/global/reset.css")
   GLOBAL_STYLES_CSS = Rails.root.join("app/assets/stylesheets/global/styles.css")
@@ -14,6 +15,19 @@ class CssArchitectureTest < ActiveSupport::TestCase
       "/compositions/index.css",
       "/utilities/index.css",
       "/blocks/index.css"
+    ], imports
+  end
+
+  test "blocks import editorial styles in order" do
+    imports = File.read(BLOCKS_INDEX).scan(/@import url\(["']([^"']+)["']\);/).flatten
+
+    assert_equal [
+      "page.css",
+      "site-header.css",
+      "home.css",
+      "writing-collection.css",
+      "article.css",
+      "site-footer.css"
     ], imports
   end
 
