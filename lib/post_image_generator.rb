@@ -7,6 +7,8 @@ require_relative "writing/path"
 
 # Simple deterministic SVG generator for post cover images.
 class PostImageGenerator
+  class SlugCollision < StandardError; end
+
   OUTPUT_DIR = "public/images/posts"
   WIDTH = 1200
   HEIGHT = 630
@@ -17,10 +19,12 @@ class PostImageGenerator
   end
 
   def generate_all
+    paths = @files.map { |file| [file, slug_for(file)] }
+    ensure_unique_slugs!(paths)
+
     FileUtils.mkdir_p(OUTPUT_DIR)
-    @files.each do |file|
+    paths.each do |file, slug|
       metadata, _body = parse_frontmatter(file)
-      slug = slug_for(file)
       title = metadata["title"] || slug.tr("_", " ").capitalize
       dest = File.join(OUTPUT_DIR, "#{slug}.svg")
       next if File.exist?(dest) && !@overwrite
@@ -30,6 +34,19 @@ class PostImageGenerator
   end
 
   private
+
+  def ensure_unique_slugs!(paths)
+    source_by_slug = {}
+
+    paths.each do |file, slug|
+      if (existing = source_by_slug[slug])
+        fail SlugCollision,
+          "Duplicate cover slug #{slug.inspect} for #{existing.inspect} and #{file.inspect}"
+      end
+
+      source_by_slug[slug] = file
+    end
+  end
 
   def parse_frontmatter(path)
     content = File.read(path)

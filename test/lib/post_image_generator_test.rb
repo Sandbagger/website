@@ -55,6 +55,50 @@ class PostImageGeneratorTest < ActiveSupport::TestCase
     end
   end
 
+  test "duplicate canonical slugs fail before creating a cover" do
+    in_temporary_site do
+      draft = write_page(
+        "app/content/pages/writing/drafts/example.markerb",
+        title: "Draft"
+      )
+      post = write_page(
+        "app/content/pages/writing/posts/2024-03-10-example.markerb",
+        title: "Post"
+      )
+
+      error = assert_raises(PostImageGenerator::SlugCollision) do
+        PostImageGenerator.new([draft, post]).generate_all
+      end
+
+      assert_includes error.message, "example"
+      assert_includes error.message, draft
+      assert_includes error.message, post
+      refute_path_exists "public/images/posts/example.svg"
+    end
+  end
+
+  test "duplicate canonical slugs fail before overwriting an existing cover" do
+    in_temporary_site do
+      draft = write_page(
+        "app/content/pages/writing/drafts/example.markerb",
+        title: "Draft"
+      )
+      post = write_page(
+        "app/content/pages/writing/posts/2024-03-10-example.markerb",
+        title: "Post"
+      )
+      cover = "public/images/posts/example.svg"
+      FileUtils.mkdir_p(File.dirname(cover))
+      File.write(cover, "existing cover")
+
+      assert_raises(PostImageGenerator::SlugCollision) do
+        PostImageGenerator.new([draft, post], overwrite: true).generate_all
+      end
+
+      assert_equal "existing cover", File.read(cover)
+    end
+  end
+
   test "rake task generates covers only for direct drafts and posts" do
     in_temporary_site do
       write_page("app/content/pages/writing/drafts/draft", title: "Draft")
