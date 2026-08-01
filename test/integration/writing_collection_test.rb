@@ -1,6 +1,17 @@
 require "test_helper"
 
 class WritingCollectionTest < ActionDispatch::IntegrationTest
+  PHYSICAL_POSTS = {
+    "/writing/markdown-in-rails-with-phlex-and-sitepress" =>
+      "2024-02-27-markdown-in-rails-with-phlex-and-sitepress.html.markerb",
+    "/writing/tag-overriding-in-phlex-and-markdown" =>
+      "2024-03-03-tag-overriding-in-phlex-and-markdown.html.markerb",
+    "/writing/capture-request-referrer-via-css" =>
+      "2024-03-10-capture-request-referrer-via-css.html.markerb",
+    "/writing/pettis-good-tariffs-vs-bad" =>
+      "2025-10-12-pettis-good-tariffs-vs-bad.markerb"
+  }.freeze
+
   test "home features the latest resource and limits compact rows to three" do
     get root_url
 
@@ -50,5 +61,26 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
     assert_select "section.writing-collection--more", 1
     assert_select "h2", text: "More writing"
     assert_select "a[href='#{path}']", 0
+  end
+
+  test "published resources retain canonical paths backed by dated post files" do
+    PHYSICAL_POSTS.each do |request_path, filename|
+      resource = Sitepress.site.get(request_path)
+
+      assert resource, "Expected #{request_path} to resolve"
+      assert resource.asset.path.to_s.end_with?("/writing/posts/#{filename}")
+    end
+  end
+
+  test "writing front matter contains no legacy publication keys" do
+    paths = Rails.root.glob("app/content/pages/writing/**/*").select(&:file?)
+
+    paths.each do |path|
+      assert_no_match(
+        /^(?:status|published|publish_at):/,
+        path.read,
+        "Legacy publication metadata remains in #{path}"
+      )
+    end
   end
 end

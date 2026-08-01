@@ -2,6 +2,17 @@
 
 class FeedController < ApplicationController
   layout -> { ApplicationLayout }
+
+  class_attribute :writing_publication_clock,
+    instance_writer: false,
+    default: Writing::PublicationClock.new
+  class_attribute :writing_publication_environment,
+    instance_writer: false,
+    default: Rails.env
+  class_attribute :writing_publication_resources,
+    instance_writer: false,
+    default: nil
+
   def index
     respond_to do |format|
       format.html { head :no_content } # Add this line
@@ -14,10 +25,21 @@ class FeedController < ApplicationController
 
   private
 
-  def posts = Sitepress.site.resources.glob("writing/*").select do |resource|
-    next if resource.data["publish_at"].nil?
-    resource.data["publish_at"] <= Date.today
-  end.compact.sort_by { |resource| resource.data["publish_at"] }.reverse
+  def posts = catalogue.published
+
+  def catalogue
+    Writing::Catalogue.new(
+      resources: writing_publication_resources || Sitepress.site.resources,
+      policy: publication_policy
+    )
+  end
+
+  def publication_policy
+    Writing::PublicationPolicy.new(
+      environment: writing_publication_environment,
+      clock: writing_publication_clock
+    )
+  end
 
   def renderer = ApplicationMarkdown
 end

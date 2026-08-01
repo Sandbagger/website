@@ -4,7 +4,23 @@ module Sitepress
     include PostCoverHelper
     layout false
 
+    class_attribute :writing_publication_clock,
+      instance_writer: false,
+      default: Writing::PublicationClock.new
+    class_attribute :writing_publication_environment,
+      instance_writer: false,
+      default: Rails.env
+
     protected
+
+    def render_resource(resource)
+      path = writing_path(resource)
+      if path&.post? && !publication_policy.accessible?(path)
+        raise Sitepress::ResourceNotFound, "No such page: #{resource.request_path}"
+      end
+
+      super
+    end
 
     # default if no layout is specified in frontmatter
     def default_layout(page)
@@ -83,15 +99,31 @@ module Sitepress
     end
 
     def writing_post?(page)
-      page.request_path.to_s.match?(%r{\A/?writing/})
+      writing_path(page).present?
     end
 
-    def published(exclude: nil)
-      Sitepress.site.resources.glob("writing/*").select do |res|
-        next if res.request_path == request.path # Exclude current page
-        next if res.data["publish_at"].nil?
-        res.data["publish_at"] <= Date.today
-      end.sort_by { |res| res.data["publish_at"] }.reverse
+    def published
+      catalogue.published(exclude: request.path)
+    end
+
+    def catalogue
+      Writing::Catalogue.new(
+        resources: Sitepress.site.resources,
+        policy: publication_policy
+      )
+    end
+
+    def publication_policy
+      Writing::PublicationPolicy.new(
+        environment: writing_publication_environment,
+        clock: writing_publication_clock
+      )
+    end
+
+    def writing_path(resource)
+      Writing::Path.new(resource.asset.path)
+    rescue Writing::Path::Invalid
+      nil
     end
   end
 end

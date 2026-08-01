@@ -11,7 +11,7 @@ module Writing
     def initialize(source_path)
       @source_path = source_path.to_s
       kind, filename = classify!
-      stem = strip_handler_extension!(filename)
+      stem = strip_handler_extension!(filename, allow_extensionless: kind == "drafts")
 
       if kind == "posts"
         @publication_date, @slug = parse_post_stem!(stem)
@@ -47,9 +47,13 @@ module Writing
       match.captures
     end
 
-    def strip_handler_extension!(filename)
+    def strip_handler_extension!(filename, allow_extensionless:)
       match = filename.match(/\A(.*)\.html\.markerb\z/) ||
         filename.match(/\A(.*)\.(?:markerb|md)\z/)
+      if allow_extensionless && !filename.start_with?(".") && File.extname(filename).empty?
+        return filename
+      end
+
       fail_invalid!("has an unsupported handler extension") unless match
 
       match[1]

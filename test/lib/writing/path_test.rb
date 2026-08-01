@@ -59,6 +59,16 @@ class Writing::PathTest < ActiveSupport::TestCase
     assert_not_predicate path, :post?
   end
 
+  test "extensionless draft preserves its slug" do
+    path = Writing::Path.new(
+      "app/content/pages/writing/drafts/tailwind-vs-semantic-css"
+    )
+
+    assert_equal "tailwind-vs-semantic-css", path.slug
+    assert_equal "/writing/drafts/tailwind-vs-semantic-css", path.preview_path
+    assert_predicate path, :draft?
+  end
+
   test "rejects a post without a date" do
     source_path = "app/content/pages/writing/posts/example.markerb"
 
