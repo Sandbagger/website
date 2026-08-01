@@ -48,7 +48,8 @@ module Writing
     end
 
     def strip_handler_extension!(filename)
-      match = filename.match(/\A(.+?)(?:\.html)?\.(?:markerb|md)\z/)
+      match = filename.match(/\A(.*)\.html\.markerb\z/) ||
+        filename.match(/\A(.*)\.(?:markerb|md)\z/)
       fail_invalid!("has an unsupported handler extension") unless match
 
       match[1]

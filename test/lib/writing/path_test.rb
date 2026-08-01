@@ -37,6 +37,14 @@ class Writing::PathTest < ActiveSupport::TestCase
     assert_equal "/writing/example", path.request_path
   end
 
+  test "dated markdown post preserves html in its slug" do
+    path = Writing::Path.new(
+      "app/content/pages/writing/posts/2024-03-10-an.example.html.md"
+    )
+
+    assert_equal "an.example.html", path.slug
+  end
+
   test "draft exposes its source, draft state, and preview path" do
     source_path = "app/content/pages/writing/drafts/an.example.markerb"
 
@@ -71,6 +79,15 @@ class Writing::PathTest < ActiveSupport::TestCase
 
   test "rejects a post without a slug" do
     source_path = "app/content/pages/writing/posts/2024-03-10-.markerb"
+
+    error = assert_raises(Writing::Path::Invalid) { Writing::Path.new(source_path) }
+
+    assert_includes error.message, source_path
+    assert_includes error.message, "slug"
+  end
+
+  test "rejects a draft without a slug" do
+    source_path = "app/content/pages/writing/drafts/.markerb"
 
     error = assert_raises(Writing::Path::Invalid) { Writing::Path.new(source_path) }
 
