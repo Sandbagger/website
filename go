@@ -79,7 +79,7 @@ function write {
     return 1
   }
 
-  if ! cp "$template" "$temporary_path"; then
+  if ! cp -p "$template" "$temporary_path"; then
     rm -f "$temporary_path"
     echo "Failed to copy writing template" >&2
     return 1

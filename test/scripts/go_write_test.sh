@@ -58,6 +58,11 @@ run_write "$basic_project" 'My New Post' "$basic_project/write.out"
 draft_path="$basic_project/app/content/pages/writing/drafts/my-new-post.markerb"
 test -f "$draft_path"
 assert_yaml_title "$draft_path" 'My New Post'
+ruby -e '
+  modes = ARGV.map { File.stat(_1).mode & 0777 }
+  abort "mode mismatch: template=%04o draft=%04o" % modes unless modes.uniq.one?
+' \
+  "$basic_project/app/content/templates/writing.makerb" "$draft_path"
 grep -Fx 'Draft created at app/content/pages/writing/drafts/my-new-post.markerb' \
   "$basic_project/write.out"
 test ! -e "$basic_project/app/content/pages/writing/drafts/my-new-post.makerb"
