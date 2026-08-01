@@ -4,6 +4,10 @@ module Writing
   class ResourcePipeline
     class Invalid < StandardError; end
 
+    class DraftPreviewResource < Sitepress::Resource
+      def renderable? = !!handler
+    end
+
     LEGACY_KEYS = %w[status published publish_at].freeze
     Target = Data.define(:node_names, :format) do
       def existing_resource(root)
@@ -76,11 +80,29 @@ module Writing
 
     def apply(root, entry)
       if entry.path.draft?
-        entry.resource.remove if environment == "production"
+        if environment == "production"
+          entry.resource.remove
+        else
+          prepare_draft_preview(entry.resource)
+        end
       else
         entry.resource.data["publish_at"] = entry.path.publication_date
         move_to_canonical_node(root, entry)
       end
+    end
+
+    def prepare_draft_preview(resource)
+      return if resource.renderable?
+
+      node = resource.node
+      resource.remove
+      node.resources.add DraftPreviewResource.new(
+        asset: resource.asset,
+        node: node,
+        format: :html,
+        handler: :markerb,
+        mime_type: MIME::Types["text/html"].first
+      )
     end
 
     def move_to_canonical_node(root, entry)

@@ -57,6 +57,32 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_same resource, root.get("/writing/drafts/unfinished")
   end
 
+  test "makes an extensionless draft render as HTML through Markerb" do
+    root = Sitepress::Node.new
+    source = add_resource(
+      root,
+      "app/content/pages/writing/drafts/extensionless"
+    )
+
+    process(root, environment: "development")
+
+    resource = root.get("/writing/drafts/extensionless")
+    assert_same source.asset, resource.asset
+    assert_equal :html, resource.format
+    assert_equal :markerb, resource.handler
+    assert_equal "text/html", resource.mime_type.to_s
+    assert_predicate resource, :renderable?
+  end
+
+  test "removes extensionless drafts in production" do
+    root = Sitepress::Node.new
+    add_resource(root, "app/content/pages/writing/drafts/extensionless")
+
+    process(root, environment: "production")
+
+    assert_nil root.get("/writing/drafts/extensionless")
+  end
+
   test "removes drafts but keeps scheduled posts in production" do
     root = Sitepress::Node.new
     add_resource(root, "app/content/pages/writing/drafts/unfinished.markerb")
