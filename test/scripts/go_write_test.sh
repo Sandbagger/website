@@ -16,12 +16,13 @@ chmod +x "$temp_dir/go"
   printf '%s\n' 'My New Post' | ./go write > "$temp_dir/write.out"
 )
 
-draft_path="$temp_dir/app/content/pages/writing/drafts/my-new-post.makerb"
+draft_path="$temp_dir/app/content/pages/writing/drafts/my-new-post.markerb"
 test -f "$draft_path"
 grep -Fx 'title: My New Post' "$draft_path"
-grep -Fx 'Draft created at app/content/pages/writing/drafts/my-new-post.makerb' \
+grep -Fx 'Draft created at app/content/pages/writing/drafts/my-new-post.markerb' \
   "$temp_dir/write.out"
-test ! -e "$temp_dir/app/content/pages/writing/my-new-post.makerb"
+test ! -e "$temp_dir/app/content/pages/writing/drafts/my-new-post.makerb"
+test ! -e "$temp_dir/app/content/pages/writing/my-new-post.markerb"
 test ! -d "$temp_dir/app/content/pages/writing/posts"
 
 if (
@@ -32,6 +33,6 @@ if (
   exit 1
 fi
 
-grep -Fx 'Draft already exists at app/content/pages/writing/drafts/my-new-post.makerb' \
+grep -Fx 'Draft already exists at app/content/pages/writing/drafts/my-new-post.markerb' \
   "$temp_dir/duplicate.out"
 grep -Fx 'title: My New Post' "$draft_path"

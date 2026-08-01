@@ -13,7 +13,7 @@ Rails 8 + SQLite (via Litestack) + Phlex views + Sitepress for static content + 
 - `./go spec` — runs `bundle exec rspec` (note: test suite is actually Minitest under `test/`; use `bin/rails test` for those).
 - `bin/rails test test/controllers/feed_controller_test.rb` — run a single test file.
 - `bundle exec standardrb` — lint (uses the `standard` gem).
-- `./go write` — scaffold a new `app/content/pages/writing/drafts/<slug>.makerb` from the template and fill in the title.
+- `./go write` — scaffold a new `app/content/pages/writing/drafts/<slug>.markerb` from the template and fill in the title.
 - `bin/rails images:generate_posts[true]` — regenerate deterministic SVG cover images in `public/images/posts/` (pass `true` to overwrite).
 - `bin/deploy` — production deploy via Kamal (loads `.env.deploy`, delegates to `bundle exec kamal`). See `docs/DEPLOY.md`.
 
@@ -40,30 +40,30 @@ No preprocessor. `app/assets/stylesheets/application.css` imports in a load-bear
 
 Writing drafts live in `app/content/pages/writing/drafts/`. Published and
 scheduled posts live in `app/content/pages/writing/posts/`, with a filename of
-`YYYY-MM-DD-<slug>.makerb`. Create a draft with `./go write`; it uses
+`YYYY-MM-DD-<slug>.markerb`. Create a draft with `./go write`; it uses
 `app/content/templates/writing.makerb` and refuses to overwrite an existing
 draft.
 
 Publish a draft by moving it to `posts/` with its Brussels publication day:
 
 ```bash
-git mv app/content/pages/writing/drafts/my-post.makerb \
-  app/content/pages/writing/posts/2026-08-02-my-post.makerb
+git mv app/content/pages/writing/drafts/my-post.markerb \
+  app/content/pages/writing/posts/2026-08-02-my-post.markerb
 ```
 
 Schedule a post by using a future Brussels date; it will publish automatically
 on that day:
 
 ```bash
-git mv app/content/pages/writing/drafts/my-post.makerb \
-  app/content/pages/writing/posts/2026-09-15-my-post.makerb
+git mv app/content/pages/writing/drafts/my-post.markerb \
+  app/content/pages/writing/posts/2026-09-15-my-post.markerb
 ```
 
 Withdraw a post by moving it back to drafts:
 
 ```bash
-git mv app/content/pages/writing/posts/2026-08-02-my-post.makerb \
-  app/content/pages/writing/drafts/my-post.makerb
+git mv app/content/pages/writing/posts/2026-08-02-my-post.markerb \
+  app/content/pages/writing/drafts/my-post.markerb
 ```
 
 Drafts and scheduled posts are previewable in development and test. In

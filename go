@@ -40,7 +40,7 @@ function write {
   read input
 
   title=$(echo "$input" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2));}1')
-  filename=$(echo "$input" | tr ' ' '-' | tr '[:upper:]' '[:lower:]').makerb
+  filename=$(echo "$input" | tr ' ' '-' | tr '[:upper:]' '[:lower:]').markerb
   drafts_dir="app/content/pages/writing/drafts"
   filepath="$drafts_dir/$filename"
   template="app/content/templates/writing.makerb"
