@@ -37,30 +37,88 @@ function migrate {
 
 function write {
   echo "Enter the title for your blog post:"
-  read input
+  if ! IFS= read -r input; then
+    echo "Failed to read title" >&2
+    return 1
+  fi
 
-  title=$(echo "$input" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2));}1')
-  filename=$(echo "$input" | tr ' ' '-' | tr '[:upper:]' '[:lower:]').markerb
+  slug=$(ruby -e \
+    'print ARGV.fetch(0).downcase.gsub(/[^a-z0-9]+/, "-").sub(/\A-+/, "").sub(/-+\z/, "")' \
+    "$input") || {
+    echo "Failed to derive draft slug" >&2
+    return 1
+  }
+
+  if [[ -z "$slug" ]]; then
+    echo "Title must contain at least one ASCII letter or number" >&2
+    return 1
+  fi
+
+  filename="$slug.markerb"
   drafts_dir="app/content/pages/writing/drafts"
   filepath="$drafts_dir/$filename"
   template="app/content/templates/writing.makerb"
 
-  mkdir -p "$drafts_dir"
+  if [[ ! -f "$template" ]]; then
+    echo "Writing template not found at $template" >&2
+    return 1
+  fi
 
-  if [[ -e "$filepath" ]]; then
+  if ! mkdir -p "$drafts_dir"; then
+    echo "Failed to create drafts directory at $drafts_dir" >&2
+    return 1
+  fi
+
+  if [[ -e "$filepath" || -L "$filepath" ]]; then
     echo "Draft already exists at $filepath" >&2
     return 1
   fi
 
-  cp "$template" "$filepath"
+  temporary_path=$(mktemp "$drafts_dir/.${filename}.tmp.XXXXXX") || {
+    echo "Failed to create temporary draft" >&2
+    return 1
+  }
 
-  # Try to handle the in-place editing in a cross-platform way
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-      # For macOS, which requires an empty string argument with -i
-      sed -i '' "s/title:/title: $title/" "$filepath"
-  else
-      # For Linux
-      sed -i "s/title:/title: $title/" "$filepath"
+  if ! cp "$template" "$temporary_path"; then
+    rm -f "$temporary_path"
+    echo "Failed to copy writing template" >&2
+    return 1
+  fi
+
+  if ! ruby -rjson -e '
+    path, title = ARGV
+    content = File.binread(path)
+    replaced = content.sub!(/^title:[^\r\n]*(\r?)$/) do
+      "title: #{JSON.generate(title)}#{Regexp.last_match(1)}"
+    end
+    exit 1 unless replaced
+    File.binwrite(path, content)
+  ' "$temporary_path" "$input"; then
+    rm -f "$temporary_path"
+    echo "Failed to populate title in draft" >&2
+    return 1
+  fi
+
+  if [[ -e "$filepath" || -L "$filepath" ]]; then
+    rm -f "$temporary_path"
+    echo "Draft already exists at $filepath" >&2
+    return 1
+  fi
+
+  if ! mv -n "$temporary_path" "$filepath"; then
+    rm -f "$temporary_path"
+    echo "Failed to finalize draft at $filepath" >&2
+    return 1
+  fi
+
+  if [[ -e "$temporary_path" || -L "$temporary_path" ]]; then
+    rm -f "$temporary_path"
+    if [[ -e "$filepath" || -L "$filepath" ]]; then
+      echo "Draft already exists at $filepath" >&2
+    else
+      echo "Failed to finalize draft at $filepath" >&2
+    fi
+    return 1
   fi
 
   echo "Draft created at $filepath"
