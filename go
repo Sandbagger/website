@@ -41,10 +41,16 @@ function write {
 
   title=$(echo "$input" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2));}1')
   filename=$(echo "$input" | tr ' ' '-' | tr '[:upper:]' '[:lower:]').makerb
-  filepath="app/content/pages/writing/$filename"
-  template="app/content/pages/writing/template.makerb"
+  drafts_dir="app/content/pages/writing/drafts"
+  filepath="$drafts_dir/$filename"
+  template="app/content/templates/writing.makerb"
 
-  touch "app/content/pages/writing/$filename"
+  mkdir -p "$drafts_dir"
+
+  if [[ -e "$filepath" ]]; then
+    echo "Draft already exists at $filepath" >&2
+    return 1
+  fi
 
   cp "$template" "$filepath"
 
@@ -57,7 +63,7 @@ function write {
       sed -i "s/title:/title: $title/" "$filepath"
   fi
 
-  echo "File $filename created in app/content/pages/writing/ based on template"
+  echo "Draft created at $filepath"
 }
 
 case "$1" in

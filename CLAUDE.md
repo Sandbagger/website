@@ -13,7 +13,7 @@ Rails 8 + SQLite (via Litestack) + Phlex views + Sitepress for static content + 
 - `./go spec` — runs `bundle exec rspec` (note: test suite is actually Minitest under `test/`; use `bin/rails test` for those).
 - `bin/rails test test/controllers/feed_controller_test.rb` — run a single test file.
 - `bundle exec standardrb` — lint (uses the `standard` gem).
-- `./go write` — scaffold a new `app/content/pages/writing/<slug>.makerb` from the template and fill in the title.
+- `./go write` — scaffold a new `app/content/pages/writing/drafts/<slug>.makerb` from the template and fill in the title.
 - `bin/rails images:generate_posts[true]` — regenerate deterministic SVG cover images in `public/images/posts/` (pass `true` to overwrite).
 - `bin/deploy` — production deploy via Kamal (loads `.env.deploy`, delegates to `bundle exec kamal`). See `docs/DEPLOY.md`.
 
@@ -36,6 +36,42 @@ No preprocessor. `app/assets/stylesheets/application.css` imports in a load-bear
 
 `PostImageGenerator` (`lib/post_image_generator.rb`) reads frontmatter from every writing page and deterministically hashes the slug into an SVG (gradient + circles + title). Run via the `images:generate_posts` rake task. Skips existing files unless `overwrite: true`.
 
+### Writing workflow
+
+Writing drafts live in `app/content/pages/writing/drafts/`. Published and
+scheduled posts live in `app/content/pages/writing/posts/`, with a filename of
+`YYYY-MM-DD-<slug>.makerb`. Create a draft with `./go write`; it uses
+`app/content/templates/writing.makerb` and refuses to overwrite an existing
+draft.
+
+Publish a draft by moving it to `posts/` with its Brussels publication day:
+
+```bash
+git mv app/content/pages/writing/drafts/my-post.makerb \
+  app/content/pages/writing/posts/2026-08-02-my-post.makerb
+```
+
+Schedule a post by using a future Brussels date; it will publish automatically
+on that day:
+
+```bash
+git mv app/content/pages/writing/drafts/my-post.makerb \
+  app/content/pages/writing/posts/2026-09-15-my-post.makerb
+```
+
+Withdraw a post by moving it back to drafts:
+
+```bash
+git mv app/content/pages/writing/posts/2026-08-02-my-post.makerb \
+  app/content/pages/writing/drafts/my-post.makerb
+```
+
+Drafts and scheduled posts are previewable in development and test. In
+production, drafts and future-dated posts return 404. A published post always
+has the stable public URL `/writing/<slug>`, regardless of its dated filename.
+Do not add the legacy `status`, `published`, or `publish_at` frontmatter keys;
+the directory and filename are the only publication authority.
+
 ### SQLite configuration
 
 SQLite is compiled with aggressive pragmas (see README.md). The Dockerfile re-applies these flags via `bundle config set --local build.sqlite3 ...` before `bundle install` — if you change the flags, update both the README and the Dockerfile. Litestack provides queue/cache/cable. Production SQLite persists only on the mounted `/srv/apps/website/shared` host path. A separate durable `/srv` filesystem is the default; `ALLOW_ROOT_DISK_STORAGE=1` is an explicit exception under which state survives deploys and reboots but is lost with a deleted, rebuilt, or failed root disk. Same-disk `/srv/backups` is not disaster recovery.
@@ -47,5 +83,5 @@ SQLite is compiled with aggressive pragmas (see README.md). The Dockerfile re-ap
 ## Conventions
 
 - `standard` is the linter — match its style (frozen_string_literal, double quotes, etc.).
-- New blog posts go in `app/content/pages/writing/` — prefer `./go write` over hand-creating files so they inherit `template.makerb`.
+- New blog posts start in `app/content/pages/writing/drafts/` — prefer `./go write` over hand-creating files so they inherit `app/content/templates/writing.makerb`.
 - When adding a layout primitive, add both the Phlex component (in `app/views/components/`) and the corresponding CSS file (in `app/assets/stylesheets/compositions/`), then import it in `application.css` in the correct cascade position.
