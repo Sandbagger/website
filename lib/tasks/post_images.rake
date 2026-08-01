@@ -3,7 +3,10 @@
 namespace :images do
   desc "Generate abstract SVG cover images for blog posts"
   task :generate_posts, [:overwrite] => :environment do |_t, args|
-    files = Dir["app/content/pages/writing/*.{markerb,md,html.markerb}"]
+    files = Dir[
+      "app/content/pages/writing/drafts/*",
+      "app/content/pages/writing/posts/*"
+    ].select { File.file?(_1) }
     if files.empty?
       puts "No post files found."
       next

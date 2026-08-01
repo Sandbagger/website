@@ -3,6 +3,7 @@
 require "yaml"
 require "digest/sha1"
 require "fileutils"
+require_relative "writing/path"
 
 # Simple deterministic SVG generator for post cover images.
 class PostImageGenerator
@@ -56,9 +57,6 @@ class PostImageGenerator
     line_height = 76
     start_y = (HEIGHT / 2) - ((text_lines.size - 1) * line_height / 2)
 
-    box_height = (text_lines.size * line_height) + (line_height * 0.8)
-    box_y = start_y - (line_height * 0.6)
-
     text_svg = text_lines.each_with_index.map do |line, idx|
       y = start_y + (idx * line_height)
       %(<text x="#{WIDTH / 2}" y="#{y}" text-anchor="middle" font-family="Space Mono, monospace" font-weight="800" font-size="72" fill="#0b1021" stroke="#f8fafc" stroke-width="3" paint-order="stroke fill" opacity="1" letter-spacing="0.5">#{escape(line)}</text>)
@@ -77,12 +75,7 @@ class PostImageGenerator
   end
 
   def slug_for(file)
-    path = Pathname(file)
-    while (ext = path.extname) && !ext.empty?
-      path = path.sub_ext("")
-      break if ext == ".html" # stop after stripping .html
-    end
-    path.basename.to_s
+    Writing::Path.new(file).slug
   end
 
   def wrap_title(text, width: 18)
