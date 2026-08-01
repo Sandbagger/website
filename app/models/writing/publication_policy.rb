@@ -8,7 +8,7 @@ module Writing
     end
 
     def published?(path)
-      path.post? && path.publication_date <= clock.today
+      path.post? && path.publication_date <= today
     end
 
     def accessible?(path)
@@ -22,5 +22,7 @@ module Writing
     attr_reader :clock, :environment
 
     def production? = environment == "production"
+
+    def today = @today ||= clock.today
   end
 end

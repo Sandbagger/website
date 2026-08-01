@@ -7,6 +7,19 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
     def today = date
   end
 
+  class AdvancingClock
+    attr_reader :calls
+
+    def initialize(*dates)
+      @dates = dates
+      @calls = 0
+    end
+
+    def today
+      @dates.fetch(@calls, @dates.last).tap { @calls += 1 }
+    end
+  end
+
   test "published selects due physical posts newest first" do
     published = resource(
       "/remapped-somewhere-else",
@@ -49,6 +62,27 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
     )
 
     assert_equal [other], catalogue([current, other]).published(exclude: "/writing/current")
+  end
+
+  test "published uses one date snapshot for the whole catalogue result" do
+    due = resource(
+      "/writing/due",
+      "writing/posts/2026-07-31-due.markerb"
+    )
+    midnight = resource(
+      "/writing/midnight",
+      "writing/posts/2026-08-01-midnight.markerb"
+    )
+    clock = AdvancingClock.new(
+      Date.new(2026, 7, 31),
+      Date.new(2026, 8, 1)
+    )
+    policy = Writing::PublicationPolicy.new(environment: "test", clock: clock)
+
+    result = Writing::Catalogue.new(resources: [due, midnight], policy: policy).published
+
+    assert_equal [due], result
+    assert_equal 1, clock.calls
   end
 
   private
