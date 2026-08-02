@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "pathname"
+
 module Writing
   class ResourcePipeline
     class Invalid < StandardError; end
@@ -20,8 +22,9 @@ module Writing
     end
     Entry = Data.define(:resource, :path, :target)
 
-    def initialize(environment:)
+    def initialize(environment:, pages_path:)
       @environment = environment.to_s
+      @pages_path = Pathname.new(pages_path).expand_path
     end
 
     def process(root)
@@ -42,12 +45,18 @@ module Writing
 
     private
 
-    attr_reader :environment
+    attr_reader :environment, :pages_path
 
     def writing_resources(root)
-      root.resources.flatten.select do |resource|
-        resource.asset.path.to_s.match?(%r{(?:\A|/)pages/writing/})
-      end
+      root.resources.flatten.select { |resource| writing_resource?(resource) }
+    end
+
+    def writing_resource?(resource)
+      relative_path = Pathname.new(resource.asset.path.to_s)
+        .expand_path
+        .relative_path_from(pages_path)
+
+      relative_path.each_filename.first == "writing"
     end
 
     def validate_legacy_metadata!(entries)

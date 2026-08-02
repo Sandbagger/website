@@ -3,7 +3,10 @@
 require Rails.root.join("lib/writing/path").to_s
 require Rails.root.join("lib/writing/resource_pipeline").to_s
 
-writing_resource_pipeline = Writing::ResourcePipeline.new(environment: Rails.env)
+writing_resource_pipeline = Writing::ResourcePipeline.new(
+  environment: Rails.env,
+  pages_path: Sitepress.site.pages_path
+)
 
 Sitepress.site.manipulate do |root|
   writing_resource_pipeline.process(root)

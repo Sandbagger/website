@@ -46,7 +46,10 @@ class FeedPublicationTest < ActionDispatch::IntegrationTest
     write_resource(directory, "drafts/draft.markerb", "Draft feed post")
 
     Sitepress::Site.new(root_path: directory).tap do |site|
-      pipeline = Writing::ResourcePipeline.new(environment: "test")
+      pipeline = Writing::ResourcePipeline.new(
+        environment: "test",
+        pages_path: site.pages_path
+      )
       site.manipulate { |root| pipeline.process(root) }
     end
   end

@@ -163,6 +163,49 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_equal tree_before, tree_snapshot(root)
   end
 
+  test "does not classify writing nested below another pages directory" do
+    root = Sitepress::Node.new
+    source_path = "app/content/pages/projects/pages/writing/posts/2024-03-10-example.markerb"
+    request_path = "/projects/pages/writing/posts/2024-03-10-example"
+    unrelated = add_resource_at(root, source_path, request_path)
+    tree_before = tree_snapshot(root)
+
+    process(root, environment: "production")
+
+    assert_same unrelated, root.get(request_path)
+    assert_nil root.get("/writing/example")
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
+  test "uses the configured pages root when its parents contain pages and writing" do
+    pages_path = "/tmp/pages/writing/site/pages"
+    root = Sitepress::Node.new
+    post = add_resource(
+      root,
+      "#{pages_path}/writing/posts/2024-03-10-example.markerb"
+    )
+
+    process(root, pages_path: pages_path)
+
+    assert_same post, root.get("/writing/example")
+  end
+
+  test "rejects misplaced writing relative to a pages root with misleading parents" do
+    pages_path = "/tmp/pages/writing/site/pages"
+    source_path = "#{pages_path}/writing/misplaced.markerb"
+    root = Sitepress::Node.new
+    resource = add_resource_at(root, source_path, "/writing/misplaced")
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::Path::Invalid) do
+      process(root, pages_path: pages_path)
+    end
+
+    assert_includes error.message, source_path
+    assert_same resource, root.get("/writing/misplaced")
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
   test "rejects duplicate canonical slugs before mutating the tree" do
     root = Sitepress::Node.new
     first_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"
@@ -251,8 +294,11 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
 
   private
 
-  def process(root, environment: "test")
-    Writing::ResourcePipeline.new(environment: environment).process(root)
+  def process(root, environment: "test", pages_path: "app/content/pages")
+    Writing::ResourcePipeline.new(
+      environment: environment,
+      pages_path: pages_path
+    ).process(root)
   end
 
   def add_resource(root, source_path, data = {})
