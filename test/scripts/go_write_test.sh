@@ -8,10 +8,11 @@ trap 'rm -rf "$temp_dir"' EXIT
 make_project() {
   local project_dir=$1
 
-  mkdir -p "$project_dir/app/content/templates"
+  mkdir -p "$project_dir/app/content/templates" "$project_dir/lib/writing"
   cp "$project_root/go" "$project_dir/go"
   cp "$project_root/app/content/templates/writing.makerb" \
     "$project_dir/app/content/templates/writing.makerb"
+  cp "$project_root/lib/writing/path.rb" "$project_dir/lib/writing/path.rb"
   chmod +x "$project_dir/go"
 }
 
@@ -50,6 +51,47 @@ assert_no_partial_draft() {
     exit 1
   fi
 }
+
+published_project="$temp_dir/published"
+make_project "$published_project"
+published_posts_dir="$published_project/app/content/pages/writing/posts"
+mkdir -p "$published_posts_dir"
+published_post="$published_posts_dir/2024-03-10-my-new-post.markerb"
+printf '%s\n' 'published post sentinel' > "$published_post"
+published_checksum_before=$(cksum < "$published_post")
+if run_write "$published_project" 'My New Post' \
+  "$published_project/write.out"; then
+  echo 'expected a published slug to block draft creation' >&2
+  exit 1
+fi
+published_checksum_after=$(cksum < "$published_post")
+test "$published_checksum_after" = "$published_checksum_before"
+grep -Fx \
+  'Writing slug already published at app/content/pages/writing/posts/2024-03-10-my-new-post.markerb' \
+  "$published_project/write.out"
+test ! -e \
+  "$published_project/app/content/pages/writing/drafts/my-new-post.markerb"
+assert_no_success "$published_project/write.out"
+assert_no_partial_draft "$published_project/app/content/pages/writing/drafts"
+
+invalid_post_project="$temp_dir/invalid-post"
+make_project "$invalid_post_project"
+invalid_posts_dir="$invalid_post_project/app/content/pages/writing/posts"
+mkdir -p "$invalid_posts_dir"
+printf '%s\n' 'invalid post sentinel' > "$invalid_posts_dir/not-dated.markerb"
+if run_write "$invalid_post_project" 'New Draft' \
+  "$invalid_post_project/write.out"; then
+  echo 'expected an invalid post filename to block draft creation' >&2
+  exit 1
+fi
+grep -F 'app/content/pages/writing/posts/not-dated.markerb' \
+  "$invalid_post_project/write.out"
+grep -F 'is missing a publication date' "$invalid_post_project/write.out"
+test ! -e \
+  "$invalid_post_project/app/content/pages/writing/drafts/new-draft.markerb"
+assert_no_success "$invalid_post_project/write.out"
+assert_no_partial_draft \
+  "$invalid_post_project/app/content/pages/writing/drafts"
 
 basic_project="$temp_dir/basic"
 make_project "$basic_project"

@@ -98,6 +98,71 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_equal Date.new(2099, 3, 10), scheduled.data["publish_at"]
   end
 
+  test "rejects flat writing resources before mutating the tree in every environment" do
+    source_path = "app/content/pages/writing/misplaced.markerb"
+
+    %w[development test production].each do |environment|
+      root = Sitepress::Node.new
+      resource = add_resource_at(root, source_path, "/writing/misplaced")
+      tree_before = tree_snapshot(root)
+
+      error = assert_raises(Writing::Path::Invalid) do
+        process(root, environment: environment)
+      end
+
+      assert_includes error.message, source_path
+      assert_same resource, root.get("/writing/misplaced")
+      assert_equal tree_before, tree_snapshot(root)
+    end
+  end
+
+  test "rejects nested misplaced writing resources before mutating the tree in every environment" do
+    source_path = "app/content/pages/writing/notes/misplaced.markerb"
+
+    %w[development test production].each do |environment|
+      root = Sitepress::Node.new
+      resource = add_resource_at(root, source_path, "/writing/notes/misplaced")
+      tree_before = tree_snapshot(root)
+
+      error = assert_raises(Writing::Path::Invalid) do
+        process(root, environment: environment)
+      end
+
+      assert_includes error.message, source_path
+      assert_same resource, root.get("/writing/notes/misplaced")
+      assert_equal tree_before, tree_snapshot(root)
+    end
+  end
+
+  test "does not classify the writing archive as a writing entry" do
+    root = Sitepress::Node.new
+    archive = add_resource_at(
+      root,
+      "app/content/pages/writing.html.markerb",
+      "/writing"
+    )
+    tree_before = tree_snapshot(root)
+
+    process(root, environment: "production")
+
+    assert_same archive, root.get("/writing")
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
+  test "does not classify a writing directory nested below another page" do
+    root = Sitepress::Node.new
+    source_path = "app/content/pages/projects/writing/posts/2024-03-10-example.markerb"
+    request_path = "/projects/writing/posts/2024-03-10-example"
+    unrelated = add_resource_at(root, source_path, request_path)
+    tree_before = tree_snapshot(root)
+
+    process(root, environment: "production")
+
+    assert_same unrelated, root.get(request_path)
+    assert_nil root.get("/writing/example")
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
   test "rejects duplicate canonical slugs before mutating the tree" do
     root = Sitepress::Node.new
     first_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"
@@ -107,11 +172,48 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
 
     error = assert_raises(Writing::ResourcePipeline::Invalid) { process(root) }
 
+    assert_includes error.message, 'Duplicate writing slug "example"'
     assert_includes error.message, first_path
     assert_includes error.message, second_path
     assert root.get("/writing/posts/2024-03-10-example")
     assert root.get("/writing/posts/2025-04-11-example")
     assert_nil root.get("/writing/example")
+  end
+
+  test "rejects a slug shared by two drafts before production mutation" do
+    root = Sitepress::Node.new
+    first_path = "app/content/pages/writing/drafts/example.markerb"
+    second_path = "app/content/pages/writing/drafts/example.html.markerb"
+    add_resource_at(root, first_path, "/writing/drafts/example")
+    add_resource_at(root, second_path, "/test-fixtures/duplicate-draft")
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) do
+      process(root, environment: "production")
+    end
+
+    assert_includes error.message, 'Duplicate writing slug "example"'
+    assert_includes error.message, first_path
+    assert_includes error.message, second_path
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
+  test "rejects a slug shared by a draft and post before production mutation" do
+    root = Sitepress::Node.new
+    draft_path = "app/content/pages/writing/drafts/example.markerb"
+    post_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"
+    add_resource(root, draft_path)
+    add_resource(root, post_path)
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) do
+      process(root, environment: "production")
+    end
+
+    assert_includes error.message, 'Duplicate writing slug "example"'
+    assert_includes error.message, draft_path
+    assert_includes error.message, post_path
+    assert_equal tree_before, tree_snapshot(root)
   end
 
   test "rejects a canonical collision with a non-writing resource before mutation" do
@@ -171,5 +273,16 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     node = path.node_names.reduce(root) { |parent, name| parent.child(name) }
 
     node.resources.add_asset(asset, format: path.format)
+  end
+
+  def tree_snapshot(node)
+    {
+      resources: node.resources.map do |resource|
+        [resource.object_id, resource.request_path, resource.asset.path.to_s]
+      end,
+      children: node.children.to_h do |child|
+        [child.name, tree_snapshot(child)]
+      end
+    }
   end
 end

@@ -33,6 +33,7 @@ module Writing
       end
 
       validate_legacy_metadata!(entries)
+      validate_slug_uniqueness!(entries)
       validate_collisions!(root, entries)
       entries.each { |entry| apply(root, entry) }
 
@@ -45,7 +46,7 @@ module Writing
 
     def writing_resources(root)
       root.resources.flatten.select do |resource|
-        resource.asset.path.to_s.match?(%r{(?:\A|/)writing/(?:posts|drafts)/})
+        resource.asset.path.to_s.match?(%r{(?:\A|/)pages/writing/})
       end
     end
 
@@ -55,6 +56,15 @@ module Writing
         next unless key
 
         fail Invalid, "Legacy writing metadata #{key.inspect} in #{entry.path.source_path}"
+      end
+    end
+
+    def validate_slug_uniqueness!(entries)
+      entries.group_by { |entry| entry.path.slug }.each do |slug, duplicates|
+        next unless duplicates.size > 1
+
+        sources = duplicates.map { |entry| entry.path.source_path }
+        fail Invalid, "Duplicate writing slug #{slug.inspect}: #{sources.join(", ")}"
       end
     end
 

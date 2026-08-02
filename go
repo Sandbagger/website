@@ -56,12 +56,45 @@ function write {
 
   filename="$slug.markerb"
   drafts_dir="app/content/pages/writing/drafts"
+  posts_dir="app/content/pages/writing/posts"
   filepath="$drafts_dir/$filename"
   template="app/content/templates/writing.makerb"
 
   if [[ ! -f "$template" ]]; then
     echo "Writing template not found at $template" >&2
     return 1
+  fi
+
+  if [[ -d "$posts_dir" ]]; then
+    if post_scan_output=$(ruby -r "./lib/writing/path" -e '
+      posts_dir, slug = ARGV
+
+      begin
+        Dir.children(posts_dir).sort.each do |filename|
+          source_path = File.join(posts_dir, filename)
+          next unless File.file?(source_path) || File.symlink?(source_path)
+
+          path = Writing::Path.new(source_path)
+          next unless path.slug == slug
+
+          puts source_path
+          exit 2
+        end
+      rescue Writing::Path::Invalid => error
+        warn error.message
+        exit 3
+      end
+    ' "$posts_dir" "$slug" 2>&1); then
+      :
+    else
+      post_scan_status=$?
+      if [[ "$post_scan_status" -eq 2 ]]; then
+        echo "Writing slug already published at $post_scan_output" >&2
+      else
+        echo "$post_scan_output" >&2
+      fi
+      return 1
+    fi
   fi
 
   if ! mkdir -p "$drafts_dir"; then
