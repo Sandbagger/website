@@ -4,7 +4,6 @@ class PagesSmokeTest < ActionDispatch::IntegrationTest
   PUBLISHED_WRITING_PATHS = %w[
     /writing/markdown-in-rails-with-phlex-and-sitepress
     /writing/tag-overriding-in-phlex-and-markdown
-    /writing/capture-request-referrer-via-css
     /writing/pettis-good-tariffs-vs-bad
   ].freeze
 

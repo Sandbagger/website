@@ -6,8 +6,6 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
       "2024-02-27-markdown-in-rails-with-phlex-and-sitepress.html.markerb",
     "/writing/tag-overriding-in-phlex-and-markdown" =>
       "2024-03-03-tag-overriding-in-phlex-and-markdown.html.markerb",
-    "/writing/capture-request-referrer-via-css" =>
-      "2024-03-10-capture-request-referrer-via-css.html.markerb",
     "/writing/pettis-good-tariffs-vs-bad" =>
       "2025-10-12-pettis-good-tariffs-vs-bad.markerb"
   }.freeze
@@ -23,7 +21,7 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
         text: /Michael Pettis/
       )
     end
-    assert_select ".writing-collection--home .article-row", 3
+    assert_select ".writing-collection--home .article-row", PHYSICAL_POSTS.size - 1
     assert_select "a[href='/writing']", text: /archive/i
   end
 
@@ -34,7 +32,7 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
     assert_select "section.writing-collection--archive", 1
     assert_select "section.writing-collection--archive > h2", text: "All writing"
     assert_select "article.writing-feature", 0
-    assert_select ".writing-collection--archive .article-row", 4
+    assert_select ".writing-collection--archive .article-row", PHYSICAL_POSTS.size
   end
 
   test "writing archive is in descending publication order" do
@@ -47,7 +45,6 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
 
     assert_equal [
       "/writing/pettis-good-tariffs-vs-bad",
-      "/writing/capture-request-referrer-via-css",
       "/writing/tag-overriding-in-phlex-and-markdown",
       "/writing/markdown-in-rails-with-phlex-and-sitepress"
     ], paths

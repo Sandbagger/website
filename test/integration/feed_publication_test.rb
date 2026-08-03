@@ -10,7 +10,7 @@ class FeedPublicationTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, "Michael Pettis on Good Tariffs vs Bad"
-    assert_includes response.body, "Capture Request Referrer via CSS"
+    assert_not_includes response.body, "Capture Request Referrer via CSS"
     assert_not_includes response.body, "Embrace the cascade in your Rails app"
     assert_not_includes response.body, "Interesting Tailwind vs Semantic CSS Artical"
   end
