@@ -11,7 +11,10 @@ module Writing
     end
 
     LEGACY_KEYS = %w[status published publish_at].freeze
-    Target = Data.define(:node_names, :format) do
+    class Target < Literal::Data
+      prop :node_names, _Array(String)
+      prop :format, Symbol
+
       def existing_resource(root)
         root.dig(*node_names)&.resources&.format(format)
       end

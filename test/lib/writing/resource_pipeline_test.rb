@@ -3,6 +3,36 @@
 require "test_helper"
 
 class Writing::ResourcePipelineTest < ActiveSupport::TestCase
+  test "target is an immutable value object" do
+    target = Writing::ResourcePipeline::Target.new(
+      node_names: ["writing", "example"],
+      format: :html
+    )
+    equal_target = Writing::ResourcePipeline::Target.new(
+      node_names: ["writing", "example"],
+      format: :html
+    )
+
+    assert_equal ["writing", "example"], target.node_names
+    assert_equal :html, target.format
+    assert_equal target, equal_target
+    assert target.eql?(equal_target)
+    assert_equal target.hash, equal_target.hash
+    assert_predicate target, :frozen?
+  end
+
+  test "target rejects invalid node names" do
+    assert_raises(Literal::TypeError) do
+      Writing::ResourcePipeline::Target.new(node_names: [1], format: :html)
+    end
+  end
+
+  test "target rejects an invalid format" do
+    assert_raises(Literal::TypeError) do
+      Writing::ResourcePipeline::Target.new(node_names: ["writing", "example"], format: "html")
+    end
+  end
+
   test "maps a dated post to its canonical request path and derives publish_at" do
     root = Sitepress::Node.new
     resource = add_resource(
