@@ -59,8 +59,11 @@ The source key remains `topic`, while the domain reader is pluralized to
 
 `Writing::Frontmatter.from(data, source_path:)` accepts Sitepress's
 `Sitepress::Data::Record` interface, checks the exact key set, extracts values,
-and constructs the typed object. It does not silently trim, split, downcase, or
-otherwise normalize authored values.
+and constructs the typed object. A YAML array is exposed by Sitepress as a
+`Sitepress::Data::Collection`; the factory copies that collection into a plain
+Ruby array before construction. It does not mutate or freeze Sitepress-owned
+values and does not silently trim, split, downcase, or otherwise normalize
+authored values.
 
 Because `Literal::Data` freezes its receiver but not nested values, the factory
 copies and freezes `title`, every topic string, the topics array, and `emoji`
@@ -74,16 +77,17 @@ when applicable.
 
 ### `Writing::Article`
 
-`Writing::Article` is an immutable `Literal::Data` facade with these
-properties:
+`Writing::Article` is a frozen `Literal::Object` domain projection with these
+typed properties:
 
-- `resource`: `Sitepress::Resource`
 - `path`: `Writing::Path`
 - `frontmatter`: `Writing::Frontmatter`
 
 `Writing::Article.from(resource)` parses the resource's physical asset path and
-frontmatter and returns a fully valid article. It is the only production entry
-point that combines Sitepress data with the writing domain.
+frontmatter and returns a fully valid article. The Sitepress resource is an
+ingestion input, not retained state. This makes the article independent of the
+resource's mutable node, format, and handler while keeping Sitepress at the
+application boundary.
 
 The facade exposes this intentional API:
 
@@ -96,8 +100,18 @@ The facade exposes this intentional API:
 - `request_path`
 - `url`
 
-These methods delegate explicitly to `frontmatter`, `path`, or `resource`.
-There is no `method_missing`, `SimpleDelegator`, or public `data` escape hatch.
+`request_path` and `url` both come from `Writing::Path#request_path`, so their
+values are stable before and after Sitepress canonical remapping. The remaining
+methods delegate explicitly to `frontmatter` or `path`. There is no
+`method_missing`, `SimpleDelegator`, retained Sitepress resource, or public
+`data` escape hatch.
+
+The article object freezes itself after initialization, and `Writing::Path`
+also freezes after successful parsing. `Writing::Article` deliberately keeps
+normal object-identity equality and hashing rather than pretending that a
+domain projection containing collaborator objects is a structural value.
+Structural equality and stable hashes are guaranteed only for the deeply
+immutable `Writing::Frontmatter` value object.
 
 ## Pipeline data flow
 
@@ -112,10 +126,11 @@ There is no `method_missing`, `SimpleDelegator`, or public `data` escape hatch.
 5. Remove production drafts, prepare development/test draft previews, and move
    posts to canonical Sitepress nodes.
 
-`ResourcePipeline::Entry` retains pipeline-only target information but carries
-an `article` instead of separate `resource` and `path` properties. The existing
-`Target` value object remains responsible for canonical Sitepress node lookup
-and materialization.
+`ResourcePipeline::Entry` retains the mutable `Sitepress::Resource` required for
+tree operations alongside the typed `article` and pipeline-only `target`.
+Separate `path` storage becomes unnecessary because it is available through
+the article. The existing `Target` value object remains responsible for
+canonical Sitepress node lookup and materialization.
 
 The old legacy-key validation is removed because the closed frontmatter schema
 rejects those keys along with every other unknown key.
@@ -162,11 +177,14 @@ they do not need to depend on the entire article class.
 `./go write` continues to prompt for a title, then prompts once for a
 comma-separated topic list. The command:
 
+- trims the title before validating, deriving the slug, and writing it;
+- rejects an empty title after trimming;
 - splits the prompt on commas;
 - trims each token;
 - rejects blank tokens and an empty list;
 - rejects case-insensitive duplicates;
-- writes the result as a canonical YAML array under `topic`;
+- serializes the title and every topic as quoted, YAML-safe scalars;
+- writes the topics as a canonical YAML array under `topic`;
 - retains its existing atomic creation, collision detection, permissions, and
   no-overwrite behavior.
 
@@ -200,6 +218,12 @@ Errors are raised in development, test, and production. Drafts do not receive a
 validation exemption. Validation happens before all pipeline mutation, so a
 failed boot cannot leave a partially remapped in-memory resource tree.
 
+When a record contains multiple problems, validation reports the first problem
+in this deterministic order: sorted unknown keys; missing `title`; missing
+`topic`; invalid `title`; invalid topic container; invalid topic members by
+index; duplicate topics; invalid `emoji`. This keeps errors predictable without
+adding an aggregate-error protocol.
+
 ## Testing
 
 ### Frontmatter unit tests
@@ -219,9 +243,10 @@ Cover:
 
 ### Article unit tests
 
-Cover explicit readers, draft/post predicates, publication dates, request paths,
-URLs, equality, and immutability. Confirm that invalid paths and frontmatter
-cannot produce an article.
+Cover explicit readers, draft/post predicates, publication dates, stable request
+paths and URLs across resource remapping, identity equality, and a frozen
+article wrapper. Confirm that the Sitepress resource is not retained and that
+invalid paths and frontmatter cannot produce an article.
 
 ### Pipeline tests
 
