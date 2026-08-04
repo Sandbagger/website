@@ -3,6 +3,77 @@
 require "test_helper"
 
 class Writing::ResourcePipelineTest < ActiveSupport::TestCase
+  test "entry is an immutable typed value object" do
+    root = Sitepress::Node.new
+    source_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"
+    resource = add_resource(root, source_path)
+    path = Writing::Path.new(source_path)
+    target = Writing::ResourcePipeline::Target.new(
+      node_names: ["writing", "example"],
+      format: :html
+    )
+    entry = Writing::ResourcePipeline::Entry.new(
+      resource: resource,
+      path: path,
+      target: target
+    )
+    equal_entry = Writing::ResourcePipeline::Entry.new(
+      resource: resource,
+      path: path,
+      target: Writing::ResourcePipeline::Target.new(
+        node_names: ["writing", "example"],
+        format: :html
+      )
+    )
+
+    assert_same resource, entry.resource
+    assert_equal path, entry.path
+    assert_equal target, entry.target
+    assert_equal entry, equal_entry
+    assert entry.eql?(equal_entry)
+    assert_equal entry.hash, equal_entry.hash
+    assert_predicate entry, :frozen?
+  end
+
+  test "entry accepts an explicit nil target but requires the keyword" do
+    root = Sitepress::Node.new
+    source_path = "app/content/pages/writing/drafts/example.markerb"
+    resource = add_resource(root, source_path)
+    path = Writing::Path.new(source_path)
+
+    entry = Writing::ResourcePipeline::Entry.new(
+      resource: resource,
+      path: path,
+      target: nil
+    )
+
+    assert_nil entry.target
+    assert_raises(ArgumentError) do
+      Writing::ResourcePipeline::Entry.new(resource: resource, path: path)
+    end
+  end
+
+  test "entry rejects invalid members" do
+    root = Sitepress::Node.new
+    source_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"
+    resource = add_resource(root, source_path)
+    path = Writing::Path.new(source_path)
+    target = Writing::ResourcePipeline::Target.new(
+      node_names: ["writing", "example"],
+      format: :html
+    )
+
+    assert_raises(Literal::TypeError) do
+      Writing::ResourcePipeline::Entry.new(resource: Object.new, path: path, target: target)
+    end
+    assert_raises(Literal::TypeError) do
+      Writing::ResourcePipeline::Entry.new(resource: resource, path: Object.new, target: target)
+    end
+    assert_raises(Literal::TypeError) do
+      Writing::ResourcePipeline::Entry.new(resource: resource, path: path, target: Object.new)
+    end
+  end
+
   test "target is an immutable value object" do
     target = Writing::ResourcePipeline::Target.new(
       node_names: ["writing", "example"],

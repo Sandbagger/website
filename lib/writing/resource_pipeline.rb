@@ -23,7 +23,16 @@ module Writing
         node_names.reduce(root) { |parent, name| parent.child(name) }
       end
     end
-    Entry = Data.define(:resource, :path, :target)
+
+    class Entry < Literal::Data
+      prop :resource, Sitepress::Resource
+      prop :path, Path
+      prop :target, _Nilable(Target)
+
+      def initialize(resource:, path:, target:)
+        super
+      end
+    end
 
     def initialize(environment:, pages_path:)
       @environment = environment.to_s
