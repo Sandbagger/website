@@ -20,6 +20,43 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
     end
   end
 
+  test "entry is an immutable value object" do
+    sitepress_resource = resource(
+      "/writing/example",
+      "writing/posts/2024-03-10-example.markerb"
+    )
+    path = Writing::Path.new(sitepress_resource.asset.path)
+
+    entry = Writing::Catalogue::Entry.new(resource: sitepress_resource, path: path)
+    equal_entry = Writing::Catalogue::Entry.new(resource: sitepress_resource, path: path)
+
+    assert_same sitepress_resource, entry.resource
+    assert_same path, entry.path
+    assert_equal entry, equal_entry
+    assert entry.eql?(equal_entry)
+    assert_equal entry.hash, equal_entry.hash
+    assert_predicate entry, :frozen?
+  end
+
+  test "entry rejects an invalid resource" do
+    path = Writing::Path.new("writing/posts/2024-03-10-example.markerb")
+
+    assert_raises(Literal::TypeError) do
+      Writing::Catalogue::Entry.new(resource: Object.new, path: path)
+    end
+  end
+
+  test "entry rejects an invalid path" do
+    sitepress_resource = resource(
+      "/writing/example",
+      "writing/posts/2024-03-10-example.markerb"
+    )
+
+    assert_raises(Literal::TypeError) do
+      Writing::Catalogue::Entry.new(resource: sitepress_resource, path: Object.new)
+    end
+  end
+
   test "published selects due physical posts newest first" do
     published = resource(
       "/remapped-somewhere-else",

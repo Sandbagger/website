@@ -2,7 +2,10 @@
 
 module Writing
   class Catalogue
-    Entry = Data.define(:resource, :path)
+    class Entry < Literal::Data
+      prop :resource, Sitepress::Resource
+      prop :path, Path
+    end
 
     def initialize(resources:, policy:)
       @resources = resources
