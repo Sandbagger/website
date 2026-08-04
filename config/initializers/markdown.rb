@@ -43,16 +43,16 @@ class ApplicationMarkdown < MarkdownRails::Renderer::Rails
   # This is provided as an example; there's many more YouTube URLs that this wouldn't catch.
   def youtube_tag(url, alt)
     embed_url = "https://www.youtube-nocookie.com/embed/#{CGI.parse(url.query).fetch("v").first}"
-    content_tag :iframe,
+    content_tag(
+      :iframe,
       src: embed_url,
       width: 560,
       height: 325,
       allow: "encrypted-media; picture-in-picture",
-      allowfullscreen: true \
-        do alt end
+      allowfullscreen: true
+    ) { alt }
   end
 end
-
 
 # Setup markdown stacks to work with different template handler in Rails.
 # `.markerb` is retained as a file extension for historical reasons but is

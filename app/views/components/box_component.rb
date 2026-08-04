@@ -6,7 +6,7 @@ class BoxComponent < ApplicationComponent
   end
 
   def view_template(&)
-    div(class: tokens('box', invert?: 'invert'), &)
+    div(class: tokens("box", invert?: "invert"), &)
   end
 
   private

@@ -2,6 +2,6 @@
 
 class StackComponent < ApplicationComponent
   def view_template(&)
-    div(class: 'stack', &)
+    div(class: "stack", &)
   end
 end

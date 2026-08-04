@@ -2,6 +2,6 @@
 
 class CenterComponent < ApplicationComponent
   def view_template(&)
-    div(class: 'center', &)
+    div(class: "center", &)
   end
 end
