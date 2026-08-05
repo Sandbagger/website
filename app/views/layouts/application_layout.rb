@@ -53,8 +53,8 @@ class ApplicationLayout < ApplicationView
     end
   end
 
-  def cover_image(src, alt: nil)
-    @cover_image = {src:, alt:}
+  def cover_image(cover, alt: nil)
+    @cover_image = {cover:, alt:}
   end
 
   # standard:disable Style/TrivialAccessors
@@ -102,8 +102,16 @@ class ApplicationLayout < ApplicationView
       end
 
       if @cover_image
+        cover = @cover_image.fetch(:cover)
+
         figure(class: "article-cover-frame") do
-          img(src: @cover_image[:src], alt: @cover_image[:alt], class: "article-cover")
+          img(
+            src: cover.src,
+            width: cover.width,
+            height: cover.height,
+            alt: @cover_image[:alt],
+            class: "article-cover"
+          )
         end
       end
     end

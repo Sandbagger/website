@@ -17,6 +17,15 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
     assert_select "section.writing-collection--home", 1
     assert_select "article.writing-feature", 1 do
       assert_select(
+        "a.writing-feature__cover[aria-label='Read Michael Pettis on Good Tariffs vs Bad']",
+        1
+      ) do
+        assert_select(
+          "img[src='/images/posts/pettis-good-tariffs-vs-bad.webp'][width='1200'][height='630'][alt='']",
+          1
+        )
+      end
+      assert_select(
         "a[href='/writing/pettis-good-tariffs-vs-bad']",
         text: /Michael Pettis/
       )

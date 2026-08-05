@@ -56,7 +56,7 @@ class CollectionComponent < ApplicationComponent
   end
 
   def feature(resource)
-    cover = post_cover_path(resource)
+    cover = post_cover(resource)
 
     article(class: ["writing-feature", cover ? nil : "writing-feature--text-only"]) do
       if cover
@@ -65,7 +65,12 @@ class CollectionComponent < ApplicationComponent
           class: "writing-feature__cover",
           aria: {label: "Read #{resource_title(resource)}"}
         ) do
-          img(src: cover, alt: "")
+          img(
+            src: cover.src,
+            width: cover.width,
+            height: cover.height,
+            alt: ""
+          )
         end
       end
 

@@ -34,6 +34,22 @@ class CollectionComponentTest < ActiveSupport::TestCase
     assert_nil document.at_css(".writing-feature img")
   end
 
+  test "feature renders a dimensioned canonical WebP cover" do
+    document = render_component(
+      [resource("/writing/pettis-good-tariffs-vs-bad", "Michael Pettis")],
+      context: :home
+    )
+
+    link = document.at_css(".writing-feature__cover")
+    image = link.at_css("img")
+
+    assert_equal "Read Michael Pettis", link["aria-label"]
+    assert_equal "/images/posts/pettis-good-tariffs-vs-bad.webp", image["src"]
+    assert_equal "1200", image["width"]
+    assert_equal "630", image["height"]
+    assert_equal "", image["alt"]
+  end
+
   test "home with only a feature omits an empty article list" do
     document = render_component(
       [resource("/writing/one-note", "One note")],

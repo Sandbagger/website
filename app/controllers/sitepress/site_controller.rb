@@ -83,8 +83,8 @@ module Sitepress
     end
 
     def attach_cover(layout, page)
-      src = post_cover_path(page)
-      layout.cover_image(src, alt: "") if src
+      cover = post_cover(page)
+      layout.cover_image(cover, alt: "") if cover
     end
 
     # parses frontmatter for layout
