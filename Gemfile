@@ -78,7 +78,7 @@ gem "litestack", "~> 0.4.2"
 
 gem "phlex-rails", "~> 2.0"
 
-gem "sitepress-rails", "~> 4.0"
+gem "sitepress-rails", "5.0.0.beta4"
 
 gem "markdown-rails", "~> 2.1"
 

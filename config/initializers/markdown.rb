@@ -36,6 +36,8 @@ class ApplicationMarkdown < MarkdownRails::Renderer::Rails
     else
       super
     end
+  rescue URI::InvalidURIError
+    ERB::Util.html_escape(alt)
   end
 
   private

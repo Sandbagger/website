@@ -407,10 +407,10 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     asset.data = data
 
     kind, filename = source_path.match(%r{/writing/(posts|drafts)/([^/]+)\z}).captures
-    node_name = Sitepress::Path.new(filename).node_name
-    node = root.child("writing").child(kind).child(node_name)
+    path = Sitepress::Path.new(filename)
+    node = root.child("writing").child(kind).child(path.node_name)
 
-    node.resources.add_asset(asset, format: asset.format)
+    node.resources.add_asset(asset, format: path.format)
   end
 
   def add_resource_at(root, source_path, request_path)
