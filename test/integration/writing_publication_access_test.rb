@@ -81,12 +81,16 @@ class WritingPublicationAccessTest < ActionDispatch::IntegrationTest
       FileUtils.mkdir_p(File.dirname(source_path))
       File.write(source_path, "---\ntitle: Preview\n---\nPreview body\n")
 
-      asset = Sitepress::Asset.new(path: source_path)
+      source = Sitepress::Page.new(path: source_path)
       path = Sitepress::Path.new(request_path)
       node = path.node_names.reduce(Sitepress.site.root) do |parent, name|
         parent.child(name)
       end
-      resource = node.resources.add_asset(asset, format: :html)
+      resource = node.resources.add Sitepress::Resource.new(
+        source: source,
+        node: node,
+        format: :html
+      )
 
       yield resource
     ensure

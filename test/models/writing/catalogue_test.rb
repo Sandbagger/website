@@ -25,7 +25,7 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
       "/writing/example",
       "writing/posts/2024-03-10-example.markerb"
     )
-    path = Writing::Path.new(sitepress_resource.asset.path)
+    path = Writing::Path.new(sitepress_resource.source.path)
 
     entry = Writing::Catalogue::Entry.new(resource: sitepress_resource, path: path)
     equal_entry = Writing::Catalogue::Entry.new(resource: sitepress_resource, path: path)
@@ -137,9 +137,13 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
     root = Sitepress::Node.new
     path = Sitepress::Path.new(request_path)
     node = path.node_names.reduce(root) { |parent, name| parent.child(name) }
-    asset = Sitepress::Asset.new(path: source_path)
-    asset.data = data
+    source = Sitepress::Page.new(path: source_path)
+    source.data = data
 
-    node.resources.add_asset(asset, format: path.format)
+    node.resources.add Sitepress::Resource.new(
+      source: source,
+      node: node,
+      format: path.format || node.default_format
+    )
   end
 end

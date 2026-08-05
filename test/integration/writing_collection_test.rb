@@ -65,7 +65,7 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
       resource = Sitepress.site.get(request_path)
 
       assert resource, "Expected #{request_path} to resolve"
-      assert resource.asset.path.to_s.end_with?("/writing/posts/#{filename}")
+      assert resource.source.path.to_s.end_with?("/writing/posts/#{filename}")
     end
   end
 

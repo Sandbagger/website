@@ -23,7 +23,7 @@ class WritingResourceMappingTest < ActiveSupport::TestCase
 
         assert resource, "Expected #{request_path} to resolve"
         assert_equal request_path, resource.request_path
-        assert resource.asset.path.to_s.end_with?("/writing/posts/#{filename}")
+        assert resource.source.path.to_s.end_with?("/writing/posts/#{filename}")
       end
 
       assert_nil Sitepress.site.get(

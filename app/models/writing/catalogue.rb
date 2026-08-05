@@ -27,7 +27,7 @@ module Writing
 
     def entries
       resources.filter_map do |resource|
-        path = Path.new(resource.asset.path)
+        path = Path.new(resource.source.path)
         Entry.new(resource:, path:)
       rescue Path::Invalid
         nil

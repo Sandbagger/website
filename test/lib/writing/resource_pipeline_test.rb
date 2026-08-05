@@ -168,11 +168,26 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     process(root, environment: "development")
 
     resource = root.get("/writing/drafts/extensionless")
-    assert_same source.asset, resource.asset
+    assert_equal Sitepress::Resource, resource.class
+    assert_same source.source, resource.source
     assert_equal :html, resource.format
     assert_equal :markerb, resource.handler
     assert_equal "text/html", resource.mime_type.to_s
     assert_predicate resource, :renderable?
+  end
+
+  test "rejects a writing resource with a non-page source before mutating the tree" do
+    root = Sitepress::Node.new
+    source_path = "app/content/pages/writing/posts/2024-03-10-static.markerb"
+    resource = add_static_resource(root, source_path)
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) { process(root) }
+
+    assert_includes error.message, source_path
+    assert_includes error.message, "Sitepress::Static"
+    assert_same resource, root.get("/writing/posts/2024-03-10-static")
+    assert_equal tree_before, tree_snapshot(root)
   end
 
   test "removes extensionless drafts in production" do
@@ -403,29 +418,49 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
   end
 
   def add_resource(root, source_path, data = {})
-    asset = Sitepress::Asset.new(path: source_path)
-    asset.data = data
+    source = Sitepress::Page.new(path: source_path)
+    source.data = data
 
     kind, filename = source_path.match(%r{/writing/(posts|drafts)/([^/]+)\z}).captures
     path = Sitepress::Path.new(filename)
     node = root.child("writing").child(kind).child(path.node_name)
 
-    node.resources.add_asset(asset, format: path.format)
+    node.resources.add Sitepress::Resource.new(
+      source: source,
+      node: node,
+      format: path.format || node.default_format
+    )
   end
 
   def add_resource_at(root, source_path, request_path)
-    asset = Sitepress::Asset.new(path: source_path)
-    asset.data = {}
+    source = Sitepress::Page.new(path: source_path)
+    source.data = {}
     path = Sitepress::Path.new(request_path)
     node = path.node_names.reduce(root) { |parent, name| parent.child(name) }
 
-    node.resources.add_asset(asset, format: path.format)
+    node.resources.add Sitepress::Resource.new(
+      source: source,
+      node: node,
+      format: path.format || node.default_format
+    )
+  end
+
+  def add_static_resource(root, source_path)
+    source = Sitepress::Static.new(path: source_path)
+    path = Sitepress::Path.new(source_path.split("/").last)
+    node = root.child("writing").child("posts").child(path.node_name)
+
+    node.resources.add Sitepress::Resource.new(
+      source: source,
+      node: node,
+      format: path.format || node.default_format
+    )
   end
 
   def tree_snapshot(node)
     {
       resources: node.resources.map do |resource|
-        [resource.object_id, resource.request_path, resource.asset.path.to_s]
+        [resource.object_id, resource.request_path, resource.source.path.to_s]
       end,
       children: node.children.to_h do |child|
         [child.name, tree_snapshot(child)]

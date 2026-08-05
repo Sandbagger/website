@@ -6,10 +6,6 @@ module Writing
   class ResourcePipeline
     class Invalid < StandardError; end
 
-    class DraftPreviewResource < Sitepress::Resource
-      def renderable? = !!handler
-    end
-
     LEGACY_KEYS = %w[status published publish_at].freeze
     class Target < Literal::Data
       prop :node_names, _Array(String)
@@ -41,7 +37,8 @@ module Writing
 
     def process(root)
       entries = writing_resources(root).map do |resource|
-        path = Path.new(resource.asset.path)
+        validate_page_source!(resource)
+        path = Path.new(resource.source.path)
         target = canonical_target(path) if path.post?
 
         Entry.new(resource: resource, path: path, target: target)
@@ -64,7 +61,7 @@ module Writing
     end
 
     def writing_resource?(resource)
-      relative_path = Pathname.new(resource.asset.path.to_s)
+      relative_path = Pathname.new(resource.source.path.to_s)
         .expand_path
         .relative_path_from(pages_path)
 
@@ -95,7 +92,7 @@ module Writing
       posts_by_target.each do |target, posts|
         existing = target.existing_resource(root)
         sources = posts.map { |entry| entry.path.source_path }
-        sources << existing.asset.path.to_s if existing && !posts.any? { |entry| entry.resource.equal?(existing) }
+        sources << existing.source.path.to_s if existing && !posts.any? { |entry| entry.resource.equal?(existing) }
         next unless sources.size > 1
 
         fail Invalid, "Duplicate canonical writing path #{posts.first.path.request_path}: #{sources.join(", ")}"
@@ -127,8 +124,8 @@ module Writing
 
       node = resource.node
       resource.remove
-      node.resources.add DraftPreviewResource.new(
-        asset: resource.asset,
+      node.resources.add Sitepress::Resource.new(
+        source: resource.source,
         node: node,
         format: :html,
         handler: :markerb,
@@ -143,6 +140,14 @@ module Writing
       resource.remove
       resource.format = entry.target.format
       resource.node = destination
+    end
+
+    def validate_page_source!(resource)
+      return if resource.source.is_a?(Sitepress::Page)
+
+      fail Invalid,
+        "Writing resource #{resource.source.path} must use Sitepress::Page, " \
+        "got #{resource.source.class}"
     end
   end
 end

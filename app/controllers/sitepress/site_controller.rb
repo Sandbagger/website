@@ -121,7 +121,7 @@ module Sitepress
     end
 
     def writing_path(resource)
-      Writing::Path.new(resource.asset.path)
+      Writing::Path.new(resource.source.path)
     rescue Writing::Path::Invalid
       nil
     end
