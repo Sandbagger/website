@@ -14,7 +14,6 @@ Rails 8 + SQLite (via Litestack) + Phlex views + Sitepress for static content + 
 - `bin/rails test test/controllers/feed_controller_test.rb` — run a single test file.
 - `bundle exec standardrb` — lint (uses the `standard` gem).
 - `./go write` — scaffold a new `app/content/pages/writing/drafts/<slug>.markerb` from the template and fill in the title.
-- `bin/rails images:generate_posts[true]` — regenerate deterministic SVG cover images in `public/images/posts/` (pass `true` to overwrite).
 - `bin/deploy` — production deploy via Kamal (loads `.env.deploy`, delegates to `bundle exec kamal`). See `docs/DEPLOY.md`.
 
 ## Architecture
@@ -34,7 +33,7 @@ No preprocessor. `app/assets/stylesheets/application.css` imports in a load-bear
 
 ### Post cover images
 
-`PostImageGenerator` (`lib/post_image_generator.rb`) reads frontmatter from every writing page and deterministically hashes the slug into an SVG (gradient + circles + title). Run via the `images:generate_posts` rake task. Skips existing files unless `overwrite: true`.
+Post covers are supplied directly as canonical 1200×630 lossless WebP files in `public/images/posts`. `Writing::Cover` validates genuine WebP content and positive `Sitepress::Image` dimensions. There is no SVG, alternate-format, or dimensionless fallback.
 
 ### Writing workflow
 

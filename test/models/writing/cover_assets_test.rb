@@ -18,6 +18,7 @@ class Writing::CoverAssetsTest < ActiveSupport::TestCase
     root = Rails.root.join("public/images/posts")
     webps = root.glob("*.webp")
 
+    assert_empty root.glob("*.svg")
     assert_equal EXPECTED, webps.map { _1.basename(".webp").to_s }.sort
     webps.each do |path|
       image = Sitepress::Image.new(path: path)
