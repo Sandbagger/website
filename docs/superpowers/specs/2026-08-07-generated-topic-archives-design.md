@@ -171,6 +171,8 @@ scheduled posts, and posts from other topics.
 ### Content migration and scaffold tests
 
 Assert that every writing resource uses the singular `topic` key with a YAML
+array and that comma-separated scalar metadata is absent. Update scaffold tests
+so new drafts start with the canonical array representation.
 Cover topic prompting, trimming, YAML-safe serialization, empty or duplicate
 input, failed reads, and atomic cleanup.
 
