@@ -29,8 +29,8 @@ trailing whitespace. Topics within one article must be unique when compared
 case-insensitively. Comma-separated strings are no longer accepted; there is no
 compatibility parser.
 
-All existing writing content and the writing scaffold template move to this
-canonical representation in the same implementation.
+All existing writing content, the writing scaffold template, and the draft
+generator move to this canonical representation in the same implementation.
 
 ## Topic identity
 
@@ -56,25 +56,43 @@ order to select its heading.
 physical Markerb template for rendering behavior while supplying per-topic
 data: the topic label, topic slug, page title, and `topic` layout name.
 
-The existing `Writing::ResourcePipeline` performs topic generation only after
-it has validated writing resources and completed draft/post remapping:
+The existing `Writing::ResourcePipeline` separates validation from mutation.
+It performs a complete preflight against every discovered post and draft in
+every environment, then mutates the tree only after that preflight succeeds:
 
-1. Read and validate every writing resource's topic array before mutating the
+1. Discover every physical writing resource and validate its topic array.
+2. Build an all-resource topic registry and validate global display-label
+   consistency, slug uniqueness, and collisions with the untouched Sitepress
    tree.
-2. Perform existing draft removal/preview preparation and canonical post moves.
-3. Collect topics from the writing resources that remain in the environment.
-4. Validate global display-label consistency, slug uniqueness, and collisions
-   with existing Sitepress resources.
-5. Add one HTML resource below `/writing/topics/<slug>` for each topic.
+3. Validate the existing canonical post targets and every planned topic target.
+4. Stop without changing the tree if any validation fails.
+5. Perform existing draft removal/preview preparation and canonical post moves.
+6. Select topics from the resources that remain in the current environment.
+7. Add one HTML resource below `/writing/topics/<slug>` for each selected topic.
 
 Generated resources use `source:` and native `Sitepress::Page` behavior. The
 application does not introduce `asset:` compatibility calls or mount the public
 cover directory into the Sitepress tree.
 
+Validation always includes drafts, including in production, so conflicting or
+malformed content cannot pass in one environment and fail in another.
 Draft-only topics are not generated in production because production drafts
-have already been removed. Topics belonging to scheduled posts are generated
-so they can become available on the publication day without an application
-restart.
+are removed during the later mutation phase. Topics belonging to scheduled
+posts are generated so they can become available on the publication day
+without an application restart.
+
+## Draft scaffolding
+
+`./go write` continues to ask for the draft title and adds one required prompt
+for a comma-separated list of topics. The command trims the input, rejects an
+empty list, blank members, and case-insensitive duplicates, then serializes the
+values as YAML-safe strings in a canonical array under `topic`.
+
+Comma separation is only a command-line input convenience. Sitepress ingestion
+accepts YAML arrays exclusively. If topic input is invalid or cannot be read,
+the command exits without creating or partially writing a draft. The physical
+template also contains an obvious valid example array for authors who create a
+file without the command.
 
 ## Publication behavior
 
@@ -116,9 +134,9 @@ display capitalization never affects routing.
 
 Invalid topic metadata raises `Writing::ResourcePipeline::Invalid` during the
 existing boot validation pass. Messages include the physical source path and
-the failing topic or slug. Validation completes before any Sitepress resource
-is moved, removed, replaced, or generated, preserving the pipeline's atomic
-failure behavior.
+the failing topic or slug. The preflight covers all resources and every planned
+canonical or topic target before any Sitepress resource is moved, removed,
+replaced, or generated, preserving the pipeline's atomic failure behavior.
 
 Generation also fails before mutation when a topic route collides with an
 existing resource or when two different topic labels resolve to the same slug.
@@ -150,11 +168,11 @@ archive routing, heading and canonical URL, matching-post membership, ordering,
 404 behavior for an archive with no due posts, and exclusion of drafts,
 scheduled posts, and posts from other topics.
 
-### Content migration tests
+### Content migration and scaffold tests
 
 Assert that every writing resource uses the singular `topic` key with a YAML
-array and that comma-separated scalar metadata is absent. Update scaffold tests
-so new drafts start with the canonical array representation.
+Cover topic prompting, trimming, YAML-safe serialization, empty or duplicate
+input, failed reads, and atomic cleanup.
 
 ## Verification
 
