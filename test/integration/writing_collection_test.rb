@@ -20,10 +20,22 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
         "a.writing-feature__cover[aria-label='Read Michael Pettis on Good Tariffs vs Bad']",
         1
       ) do
-        assert_select(
-          "img[src='/images/posts/pettis-good-tariffs-vs-bad-1200w.webp'][width='1200'][height='630'][alt='']",
-          1
-        )
+        images = css_select("img")
+
+        assert_equal 1, images.size
+
+        image = images[0]
+
+        assert_equal "/images/posts/pettis-good-tariffs-vs-bad-1200w.webp", image["src"]
+        assert_equal [
+          "/images/posts/pettis-good-tariffs-vs-bad-480w.webp 480w",
+          "/images/posts/pettis-good-tariffs-vs-bad-768w.webp 768w",
+          "/images/posts/pettis-good-tariffs-vs-bad-1200w.webp 1200w"
+        ].join(", "), image["srcset"]
+        assert_equal "(max-width: 48rem) calc(100vw - clamp(2.2rem, 8vw, 6rem)), min(60vw, 47rem)", image["sizes"]
+        assert_equal "1200", image["width"]
+        assert_equal "630", image["height"]
+        assert_equal "", image["alt"]
       end
       assert_select(
         "a[href='/writing/pettis-good-tariffs-vs-bad']",

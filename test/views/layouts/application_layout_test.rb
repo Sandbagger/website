@@ -25,6 +25,8 @@ class ApplicationLayoutTest < ActiveSupport::TestCase
     image = document.at_css("img.article-cover")
 
     assert_equal "/images/posts/pettis-good-tariffs-vs-bad-1200w.webp", image["src"]
+    assert_equal cover.srcset, image["srcset"]
+    assert_equal "(max-width: 48rem) min(calc(100vw - clamp(2.2rem, 8vw, 6rem)), 36rem), 22rem", image["sizes"]
     assert_equal "1200", image["width"]
     assert_equal "630", image["height"]
     assert_equal "", image["alt"]

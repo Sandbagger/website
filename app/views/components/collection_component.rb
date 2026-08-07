@@ -3,6 +3,10 @@
 class CollectionComponent < ApplicationComponent
   include PostCoverHelper
 
+  FEATURE_COVER_SIZES = "(max-width: 48rem) " \
+    "calc(100vw - clamp(2.2rem, 8vw, 6rem)), " \
+    "min(60vw, 47rem)"
+
   def initialize(collection, context: :archive)
     @collection = collection || []
     @context = context.to_sym
@@ -67,6 +71,8 @@ class CollectionComponent < ApplicationComponent
         ) do
           img(
             src: cover.src,
+            srcset: cover.srcset,
+            sizes: FEATURE_COVER_SIZES,
             width: cover.width,
             height: cover.height,
             alt: ""

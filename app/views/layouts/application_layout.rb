@@ -5,6 +5,10 @@ class ApplicationLayout < ApplicationView
   include Phlex::Rails::Helpers::ContentFor
   include PageHelper
 
+  ARTICLE_COVER_SIZES = "(max-width: 48rem) " \
+    "min(calc(100vw - clamp(2.2rem, 8vw, 6rem)), 36rem), " \
+    "22rem"
+
   def initialize
     @partials = []
     @cover_image = nil
@@ -107,6 +111,8 @@ class ApplicationLayout < ApplicationView
         figure(class: "article-cover-frame") do
           img(
             src: cover.src,
+            srcset: cover.srcset,
+            sizes: ARTICLE_COVER_SIZES,
             width: cover.width,
             height: cover.height,
             alt: @cover_image[:alt],

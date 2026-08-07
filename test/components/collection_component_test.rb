@@ -35,8 +35,10 @@ class CollectionComponentTest < ActiveSupport::TestCase
   end
 
   test "feature renders a dimensioned canonical WebP cover" do
+    featured_resource = resource("/writing/pettis-good-tariffs-vs-bad", "Michael Pettis")
+    cover = Writing::Cover.find(featured_resource)
     document = render_component(
-      [resource("/writing/pettis-good-tariffs-vs-bad", "Michael Pettis")],
+      [featured_resource],
       context: :home
     )
 
@@ -45,6 +47,8 @@ class CollectionComponentTest < ActiveSupport::TestCase
 
     assert_equal "Read Michael Pettis", link["aria-label"]
     assert_equal "/images/posts/pettis-good-tariffs-vs-bad-1200w.webp", image["src"]
+    assert_equal cover.srcset, image["srcset"]
+    assert_equal "(max-width: 48rem) calc(100vw - clamp(2.2rem, 8vw, 6rem)), min(60vw, 47rem)", image["sizes"]
     assert_equal "1200", image["width"]
     assert_equal "630", image["height"]
     assert_equal "", image["alt"]
