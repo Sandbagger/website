@@ -15,26 +15,13 @@ class Writing::CoverAssetsTest < ActiveSupport::TestCase
   ].freeze
   SIZES = {480 => 252, 768 => 403, 1200 => 630}.freeze
 
-  test "repository retains canonical WebP cover masters during the responsive migration" do
-    root = Rails.root.join("public/images/posts")
-    masters = EXPECTED.map { |slug| root.join("#{slug}.webp") }
-
-    masters.each do |path|
-      image = Sitepress::Image.new(path: path)
-
-      assert_path_exists path
-      assert_equal :webp, FastImage.type(path.to_s), path.to_s
-      assert_equal [1200, 630], [image.width, image.height], path.to_s
-    end
-  end
-
-  test "repository contains every responsive lossless WebP variant" do
+  test "repository contains only canonical responsive lossless WebP covers" do
     root = Rails.root.join("public/images/posts")
     expected = EXPECTED.product(SIZES.keys).map { |slug, width| "#{slug}-#{width}w.webp" }.sort
-    variants = root.glob("*-{480,768,1200}w.webp")
+    covers = root.children.select(&:file?)
 
-    assert_equal expected, variants.map { _1.basename.to_s }.sort
-    variants.each do |path|
+    assert_equal expected, covers.map { _1.basename.to_s }.sort
+    covers.each do |path|
       width = path.basename.to_s.match(/-(480|768|1200)w\.webp\z/)[1].to_i
       image = Sitepress::Image.new(path: path)
 

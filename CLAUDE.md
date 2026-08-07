@@ -33,7 +33,7 @@ No preprocessor. `app/assets/stylesheets/application.css` imports in a load-bear
 
 ### Post cover images
 
-Post covers are supplied directly as canonical 1200×630 lossless WebP files in `public/images/posts`. `Writing::Cover` validates genuine WebP content and positive `Sitepress::Image` dimensions. There is no SVG, alternate-format, or dimensionless fallback.
+Post covers are supplied directly as canonical 480w, 768w, and 1200w lossless WebP variants named `<slug>-<width>w.webp` in `public/images/posts`. `Writing::Cover` validates a complete VP8L set and exact `Sitepress::Image` dimensions. There is no unsuffixed, alternate-format, partial-set, or dimensionless fallback.
 
 ### Writing workflow
 
