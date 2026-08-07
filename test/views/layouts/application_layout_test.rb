@@ -10,18 +10,21 @@ class ApplicationLayoutTest < ActiveSupport::TestCase
 
   test "article header renders dimensioned cover metadata" do
     layout = article_layout
-    cover = Writing::Cover.new(
-      src: "/images/posts/example.webp",
-      width: 1200,
-      height: 630
-    )
+    variants = Writing::Cover::SIZES.map do |width, height|
+      Writing::Cover::Variant.new(
+        src: "/images/posts/pettis-good-tariffs-vs-bad-#{width}w.webp",
+        width: width,
+        height: height
+      )
+    end
+    cover = Writing::Cover.new(variants: variants)
     layout.page_kind(:article)
     layout.cover_image(cover, alt: "")
 
     document = Nokogiri::HTML5.fragment(layout.call)
     image = document.at_css("img.article-cover")
 
-    assert_equal "/images/posts/example.webp", image["src"]
+    assert_equal "/images/posts/pettis-good-tariffs-vs-bad-1200w.webp", image["src"]
     assert_equal "1200", image["width"]
     assert_equal "630", image["height"]
     assert_equal "", image["alt"]

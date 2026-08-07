@@ -44,7 +44,7 @@ class CollectionComponentTest < ActiveSupport::TestCase
     image = link.at_css("img")
 
     assert_equal "Read Michael Pettis", link["aria-label"]
-    assert_equal "/images/posts/pettis-good-tariffs-vs-bad.webp", image["src"]
+    assert_equal "/images/posts/pettis-good-tariffs-vs-bad-1200w.webp", image["src"]
     assert_equal "1200", image["width"]
     assert_equal "630", image["height"]
     assert_equal "", image["alt"]

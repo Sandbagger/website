@@ -21,7 +21,7 @@ class WritingCollectionTest < ActionDispatch::IntegrationTest
         1
       ) do
         assert_select(
-          "img[src='/images/posts/pettis-good-tariffs-vs-bad.webp'][width='1200'][height='630'][alt='']",
+          "img[src='/images/posts/pettis-good-tariffs-vs-bad-1200w.webp'][width='1200'][height='630'][alt='']",
           1
         )
       end

@@ -11,7 +11,7 @@ class PostCoverHelperTest < ActiveSupport::TestCase
     cover = post_cover(resource)
 
     assert_instance_of Writing::Cover, cover
-    assert_equal "/images/posts/pettis-good-tariffs-vs-bad.webp", cover.src
+    assert_equal "/images/posts/pettis-good-tariffs-vs-bad-1200w.webp", cover.src
   end
 
   test "returns nil when a canonical cover is absent" do
