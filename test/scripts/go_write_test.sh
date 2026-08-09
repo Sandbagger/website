@@ -46,9 +46,22 @@ assert_yaml_topics() {
   local draft_path=$1
   shift
 
-  ruby -ryaml -e '
-    actual = YAML.safe_load(File.read(ARGV.shift)).fetch("topic")
-    abort "topics mismatch: #{actual.inspect}" unless actual == ARGV
+  ruby -rjson -ryaml -e '
+    content = File.read(ARGV.shift)
+    frontmatter = content.match(/\A---\r?\n(?<data>.*?)^---(?:\r?\n|\z)/m)
+    abort "missing initial frontmatter" unless frontmatter
+
+    expected_topics = ARGV
+    actual_topics = YAML.safe_load(frontmatter[:data]).fetch("topic")
+    abort "topics mismatch: #{actual_topics.inspect}" unless actual_topics == expected_topics
+
+    lines = frontmatter[:data].lines(chomp: true)
+    topic_index = lines.index("topic:")
+    abort "missing topic block" unless topic_index
+    topic_block = [lines.fetch(topic_index)]
+    topic_block.concat(lines.drop(topic_index + 1).take_while { _1.start_with?("  - ") })
+    expected_block = ["topic:", *expected_topics.map { "  - #{JSON.generate(_1)}" }]
+    abort "noncanonical topic block: #{topic_block.inspect}" unless topic_block == expected_block
   ' "$draft_path" "$@"
 }
 
@@ -281,12 +294,36 @@ test ! -e "$copy_project/app/content/pages/writing/drafts/copy-failure.markerb"
 assert_no_success "$copy_project/write.out"
 assert_no_partial_draft "$copy_project/app/content/pages/writing/drafts"
 
+interrupted_project="$temp_dir/interrupted-copy"
+make_project "$interrupted_project"
+mkdir "$interrupted_project/bin"
+cat > "$interrupted_project/bin/cp" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+/bin/cp "$@"
+kill -TERM "$PPID"
+SH
+chmod +x "$interrupted_project/bin/cp"
+if PATH="$interrupted_project/bin:$PATH" \
+  run_write "$interrupted_project" 'Interrupted Copy' 'Ruby' \
+    "$interrupted_project/write.out"; then
+  echo 'expected interruption after temporary copy to fail' >&2
+  exit 1
+fi
+test ! -e \
+  "$interrupted_project/app/content/pages/writing/drafts/interrupted-copy.markerb"
+assert_no_success "$interrupted_project/write.out"
+assert_no_partial_draft \
+  "$interrupted_project/app/content/pages/writing/drafts"
+
 substitution_project="$temp_dir/substitution-failure"
 make_project "$substitution_project"
 cat > "$substitution_project/app/content/templates/writing.makerb" <<'TEMPLATE'
 ---
 topic:
+  - Topic
 ---
+title:
 TEMPLATE
 if run_write "$substitution_project" 'No Title Field' 'Ruby' \
   "$substitution_project/write.out"; then
@@ -306,6 +343,8 @@ cat > "$missing_topic_project/app/content/templates/writing.makerb" <<'TEMPLATE'
 ---
 title:
 ---
+topic:
+  - Topic
 TEMPLATE
 if run_write "$missing_topic_project" 'No Topic Field' 'Ruby, Sitepress' \
   "$missing_topic_project/write.out"; then
@@ -319,3 +358,50 @@ test ! -e \
 assert_no_success "$missing_topic_project/write.out"
 assert_no_partial_draft \
   "$missing_topic_project/app/content/pages/writing/drafts"
+
+duplicate_title_project="$temp_dir/duplicate-title-field"
+make_project "$duplicate_title_project"
+cat > "$duplicate_title_project/app/content/templates/writing.makerb" <<'TEMPLATE'
+---
+title:
+title:
+topic:
+  - Topic
+---
+TEMPLATE
+if run_write "$duplicate_title_project" 'Duplicate Title' 'Ruby' \
+  "$duplicate_title_project/write.out"; then
+  echo 'expected duplicate title fields to fail' >&2
+  exit 1
+fi
+grep -Fx 'Failed to populate title in draft' \
+  "$duplicate_title_project/write.out"
+test ! -e \
+  "$duplicate_title_project/app/content/pages/writing/drafts/duplicate-title.markerb"
+assert_no_success "$duplicate_title_project/write.out"
+assert_no_partial_draft \
+  "$duplicate_title_project/app/content/pages/writing/drafts"
+
+duplicate_topic_project="$temp_dir/duplicate-topic-field"
+make_project "$duplicate_topic_project"
+cat > "$duplicate_topic_project/app/content/templates/writing.makerb" <<'TEMPLATE'
+---
+title:
+topic:
+  - Topic
+topic:
+  - Topic
+---
+TEMPLATE
+if run_write "$duplicate_topic_project" 'Duplicate Topic' 'Ruby' \
+  "$duplicate_topic_project/write.out"; then
+  echo 'expected duplicate topic fields to fail' >&2
+  exit 1
+fi
+grep -Fx 'Failed to populate topics in draft' \
+  "$duplicate_topic_project/write.out"
+test ! -e \
+  "$duplicate_topic_project/app/content/pages/writing/drafts/duplicate-topic.markerb"
+assert_no_success "$duplicate_topic_project/write.out"
+assert_no_partial_draft \
+  "$duplicate_topic_project/app/content/pages/writing/drafts"

@@ -126,10 +126,21 @@ function write {
     return 1
   fi
 
+  function cleanup_temporary_draft {
+    if [[ -n "${temporary_path:-}" && \
+      ( -e "$temporary_path" || -L "$temporary_path" ) ]]; then
+      rm -f "$temporary_path"
+    fi
+  }
+
   temporary_path=$(mktemp "$drafts_dir/.${filename}.tmp.XXXXXX") || {
     echo "Failed to create temporary draft" >&2
     return 1
   }
+  trap cleanup_temporary_draft EXIT
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
 
   if ! cp -p "$template" "$temporary_path"; then
     rm -f "$temporary_path"
@@ -140,21 +151,30 @@ function write {
   if ruby -rjson -e '
     path, title, topics_json = ARGV
     content = File.binread(path)
-    title_replaced = content.sub!(/^title:[^\r\n]*(\r?)$/) do
+    frontmatter = content.match(/\A---\r?\n(?<data>.*?)^---(?:\r?\n|\z)/m)
+    exit 1 unless frontmatter
+
+    data = frontmatter[:data]
+    title_pattern = /^title:[ \t]*(\r?)$/
+    exit 1 unless data.scan(/^title:/).one? && data.scan(title_pattern).one?
+    title_replaced = data.sub!(title_pattern) do
       "title: #{JSON.generate(title)}#{Regexp.last_match(1)}"
     end
     exit 1 unless title_replaced
 
     topics = JSON.parse(topics_json)
-    topic_replaced = content.sub!(/^topic:(\r?\n)  - Topic(?:\r?\n|\z)/) do
+    topic_pattern = /^topic:(\r?\n)  - Topic(\r?)$(?!\n  - )/
+    exit 2 unless data.scan(/^topic:/).one? && data.scan(topic_pattern).one?
+    topic_replaced = data.sub!(topic_pattern) do
       newline = Regexp.last_match(1)
-      trailing_newline = Regexp.last_match(0).end_with?("\n") ? newline : ""
+      trailing_carriage_return = Regexp.last_match(2)
       values = topics.map { "  - #{JSON.generate(_1)}" }.join(newline)
 
-      "topic:#{newline}#{values}#{trailing_newline}"
+      "topic:#{newline}#{values}#{trailing_carriage_return}"
     end
     exit 2 unless topic_replaced
 
+    content[frontmatter.begin(:data)...frontmatter.end(:data)] = data
     File.binwrite(path, content)
   ' "$temporary_path" "$input" "$topics_json"; then
     :
@@ -190,6 +210,9 @@ function write {
     fi
     return 1
   fi
+
+  temporary_path=""
+  trap - EXIT HUP INT TERM
 
   echo "Draft created at $filepath"
 }
