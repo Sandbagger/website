@@ -6,7 +6,9 @@ ruby "3.3.5"
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 8.0.0"
 
-gem "literal", "~> 1.9.0"
+gem "literal", "~> 1.9.0",
+  github: "yippee-fun/literal",
+  ref: "e51ef7c3e6a03127977acc06071a020b497be24e"
 
 # Use sqlite3 as the database for Active Record
 gem "sqlite3", "~> 2.1"

@@ -6,6 +6,14 @@ GIT
       markly (~> 0.7)
       phlex (>= 1.10)
 
+GIT
+  remote: https://github.com/yippee-fun/literal.git
+  revision: e51ef7c3e6a03127977acc06071a020b497be24e
+  ref: e51ef7c3e6a03127977acc06071a020b497be24e
+  specs:
+    literal (1.9.0)
+      zeitwerk
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -150,8 +158,6 @@ GEM
       zeitwerk (>= 2.6.18, < 3.0)
     language_server-protocol (3.17.0.3)
     lint_roller (1.1.0)
-    literal (1.9.0)
-      zeitwerk
     litestack (0.4.3)
       erubi
       hanami-router
@@ -401,7 +407,7 @@ DEPENDENCIES
   jbuilder
   jsbundling-rails (~> 1.3)
   kamal (~> 2.0)
-  literal (~> 1.9.0)
+  literal (~> 1.9.0)!
   litestack (~> 0.4.2)
   lograge
   markdown-rails (~> 2.1)
