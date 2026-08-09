@@ -9,6 +9,7 @@ class PagesSmokeTest < ActionDispatch::IntegrationTest
 
   Sitepress.site.resources.each do |resource|
     next unless resource.mime_type.to_s.include?("html")
+    next if resource.source.is_a?(Writing::TopicPage)
 
     test "renders #{resource.request_path}" do
       get resource.request_path

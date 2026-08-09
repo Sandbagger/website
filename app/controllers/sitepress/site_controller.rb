@@ -66,6 +66,23 @@ module Sitepress
       end
     end
 
+    def topic_layout(page)
+      topic = Writing::Topic.new(label: page.data.fetch("topic_label"))
+      posts = published(topic:)
+      if posts.empty?
+        fail Sitepress::ResourceNotFound, "No such page: #{page.request_path}"
+      end
+
+      ApplicationLayout.new.tap do |layout|
+        layout.page_kind(:archive)
+        layout.page_title(page_title_for(page))
+        layout.markdown(render_resource_inline(page))
+        layout.partial(
+          CollectionComponent.new(posts, context: :archive)
+        )
+      end
+    end
+
     private
 
     def render_resource_with_handler(resource)
@@ -102,8 +119,8 @@ module Sitepress
       writing_path(page).present?
     end
 
-    def published
-      catalogue.published(exclude: request.path)
+    def published(topic: nil)
+      catalogue.published(topic:, exclude: request.path)
     end
 
     def catalogue
