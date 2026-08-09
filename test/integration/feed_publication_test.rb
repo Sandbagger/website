@@ -44,11 +44,15 @@ class FeedPublicationTest < ActionDispatch::IntegrationTest
     write_resource(directory, "posts/2000-01-01-due.markerb", "Due feed post")
     write_resource(directory, "posts/2999-01-01-scheduled.markerb", "Scheduled feed post")
     write_resource(directory, "drafts/draft.markerb", "Draft feed post")
+    topic_template_path = File.join(directory, "templates", "topic.markerb")
+    FileUtils.mkdir_p(File.dirname(topic_template_path))
+    File.write(topic_template_path, "<!-- Topic archive rows are supplied by the controller. -->\n")
 
     Sitepress::Site.new(root_path: directory).tap do |site|
       pipeline = Writing::ResourcePipeline.new(
         environment: "test",
-        pages_path: site.pages_path
+        pages_path: site.pages_path,
+        topic_template_path: topic_template_path
       )
       site.manipulate { |root| pipeline.process(root) }
     end

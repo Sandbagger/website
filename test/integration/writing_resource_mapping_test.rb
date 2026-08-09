@@ -32,6 +32,18 @@ class WritingResourceMappingTest < ActiveSupport::TestCase
     end
   end
 
+  test "maps canonical topic metadata to native topic resources" do
+    with_temporary_site do
+      resource = Sitepress.site.get("/writing/topics/ruby")
+
+      assert_instance_of Sitepress::Resource, resource
+      assert_instance_of Writing::TopicPage, resource.source
+      assert_equal :html, resource.format
+      assert_equal :markerb, resource.handler
+      assert_equal "text/html", resource.mime_type.to_s
+    end
+  end
+
   private
 
   def with_temporary_site
@@ -48,7 +60,10 @@ class WritingResourceMappingTest < ActiveSupport::TestCase
 
   def build_site(directory)
     posts_path = File.join(directory, "pages", "writing", "posts")
+    topic_template_path = File.join(directory, "templates", "topic.markerb")
     FileUtils.mkdir_p(posts_path)
+    FileUtils.mkdir_p(File.dirname(topic_template_path))
+    File.write(topic_template_path, "<!-- Topic archive rows are supplied by the controller. -->\n")
 
     POSTS.each_key do |filename|
       File.write(File.join(posts_path, filename), "---\ntitle: Example\ntopic:\n  - Ruby\n---\nBody\n")
@@ -57,7 +72,8 @@ class WritingResourceMappingTest < ActiveSupport::TestCase
     Sitepress::Site.new(root_path: directory).tap do |site|
       pipeline = Writing::ResourcePipeline.new(
         environment: "test",
-        pages_path: site.pages_path
+        pages_path: site.pages_path,
+        topic_template_path: topic_template_path
       )
       site.manipulate { |root| pipeline.process(root) }
     end

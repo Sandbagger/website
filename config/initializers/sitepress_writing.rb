@@ -2,11 +2,13 @@
 
 require Rails.root.join("lib/writing/path").to_s
 require Rails.root.join("lib/writing/topic").to_s
+require Rails.root.join("lib/writing/topic_page").to_s
 require Rails.root.join("lib/writing/resource_pipeline").to_s
 
 writing_resource_pipeline = Writing::ResourcePipeline.new(
   environment: Rails.env,
-  pages_path: Sitepress.site.pages_path
+  pages_path: Sitepress.site.pages_path,
+  topic_template_path: Sitepress.site.root_path.join("templates/topic.markerb")
 )
 
 Sitepress.site.manipulate do |root|

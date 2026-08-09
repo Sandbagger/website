@@ -151,6 +151,133 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_nil root.get("/writing/posts/2024-03-10-example")
   end
 
+  test "generates one native HTML topic resource for a canonical writing topic" do
+    root = Sitepress::Node.new
+    add_resource(root, "app/content/pages/writing/posts/2024-03-10-example.markerb")
+
+    Writing::ResourcePipeline.new(
+      environment: "test",
+      pages_path: "app/content/pages",
+      topic_template_path: topic_template_path
+    ).process(root)
+
+    resource = root.get("/writing/topics/ruby")
+    assert_instance_of Sitepress::Resource, resource
+    assert_instance_of Writing::TopicPage, resource.source
+    assert_equal "/writing/topics/ruby", resource.request_path
+    assert_equal :html, resource.format
+    assert_equal :markerb, resource.handler
+    assert_equal "text/html", resource.mime_type.to_s
+    assert_predicate resource, :renderable?
+  end
+
+  test "deduplicates repeated canonical topic slugs" do
+    root = Sitepress::Node.new
+    add_resource(root, "app/content/pages/writing/posts/2024-03-10-first.markerb", "topic" => ["Ruby"])
+    add_resource(root, "app/content/pages/writing/posts/2024-03-11-second.markerb", "topic" => ["Ruby"])
+
+    process(root)
+
+    assert_equal 1, root.dig("writing", "topics", "ruby").resources.size
+  end
+
+  test "rejects a non-generated topic collision before mutating posts or drafts" do
+    root = Sitepress::Node.new
+    existing_path = "app/content/pages/legacy/ruby.markerb"
+    post_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"
+    draft_path = "app/content/pages/writing/drafts/draft-example.markerb"
+    existing = add_resource_at(root, existing_path, "/writing/topics/ruby")
+    post = add_resource(root, post_path)
+    draft = add_resource(root, draft_path)
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) { process(root) }
+
+    assert_includes error.message, "/writing/topics/ruby"
+    assert_includes error.message, '"ruby"'
+    assert_includes error.message, existing_path
+    assert_includes error.message, post_path
+    assert_nil post.data["publish_at"]
+    assert_same draft, root.get("/writing/drafts/draft-example")
+    assert_equal tree_before, tree_snapshot(root)
+    assert_same existing, root.get("/writing/topics/ruby")
+  end
+
+  test "production omits topics found only in drafts but includes scheduled posts" do
+    root = Sitepress::Node.new
+    add_resource(root, "app/content/pages/writing/drafts/draft.markerb", "topic" => ["Draft only"])
+    add_resource(
+      root,
+      "app/content/pages/writing/posts/2099-03-10-scheduled.markerb",
+      "topic" => ["Scheduled"]
+    )
+
+    process(root, environment: "production")
+
+    assert_nil root.get("/writing/topics/draft-only")
+    assert_instance_of Writing::TopicPage, root.get("/writing/topics/scheduled").source
+  end
+
+  test "non-production generates topics found in drafts" do
+    root = Sitepress::Node.new
+    add_resource(root, "app/content/pages/writing/drafts/draft.markerb", "topic" => ["Draft only"])
+
+    process(root, environment: "development")
+
+    assert_instance_of Writing::TopicPage, root.get("/writing/topics/draft-only").source
+  end
+
+  test "rejects a missing topic template before mutating the tree" do
+    root = Sitepress::Node.new
+    post = add_resource(root, "app/content/pages/writing/posts/2024-03-10-example.markerb")
+    tree_before = tree_snapshot(root)
+    missing_template = Rails.root.join("tmp/missing-topic.markerb")
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) do
+      process(root, topic_template_path: missing_template)
+    end
+
+    assert_includes error.message, missing_template.to_s
+    assert_nil post.data["publish_at"]
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
+  test "rejects a non-file topic template before mutating the tree" do
+    root = Sitepress::Node.new
+    post = add_resource(root, "app/content/pages/writing/posts/2024-03-10-example.markerb")
+    tree_before = tree_snapshot(root)
+    template_directory = Rails.root.join("app/content/templates")
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) do
+      process(root, topic_template_path: template_directory)
+    end
+
+    assert_includes error.message, template_directory.to_s
+    assert_nil post.data["publish_at"]
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
+  test "validates every generated topic target before mutating the tree" do
+    root = Sitepress::Node.new
+    post = add_resource(
+      root,
+      "app/content/pages/writing/posts/2024-03-10-example.markerb",
+      "topic" => ["Ruby", "Phlex"]
+    )
+    existing_path = "app/content/pages/legacy/phlex.markerb"
+    add_resource_at(root, existing_path, "/writing/topics/phlex")
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) { process(root) }
+
+    assert_includes error.message, "/writing/topics/phlex"
+    assert_includes error.message, existing_path
+    assert_includes error.message, post.source.path.to_s
+    assert_nil post.data["publish_at"]
+    assert_nil root.get("/writing/topics/ruby")
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
   test "maps a markdown post to the canonical HTML request path" do
     root = Sitepress::Node.new
     resource = add_resource(
@@ -515,11 +642,16 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
 
   private
 
-  def process(root, environment: "test", pages_path: "app/content/pages")
+  def process(root, environment: "test", pages_path: "app/content/pages", topic_template_path: self.topic_template_path)
     Writing::ResourcePipeline.new(
       environment: environment,
-      pages_path: pages_path
+      pages_path: pages_path,
+      topic_template_path: topic_template_path
     ).process(root)
+  end
+
+  def topic_template_path
+    Rails.root.join("app/content/templates/topic.markerb")
   end
 
   def add_resource(root, source_path, data = nil)

@@ -35,9 +35,10 @@ module Writing
       end
     end
 
-    def initialize(environment:, pages_path:)
+    def initialize(environment:, pages_path:, topic_template_path:)
       @environment = environment.to_s
       @pages_path = Pathname.new(pages_path).expand_path
+      @topic_template_path = Pathname.new(topic_template_path).expand_path
     end
 
     def process(root)
@@ -53,15 +54,19 @@ module Writing
       validate_legacy_metadata!(entries)
       validate_slug_uniqueness!(entries)
       validate_topic_registry!(entries)
+      topics = generated_topics(entries)
+      validate_topic_template!
       validate_collisions!(root, entries)
+      validate_topic_collisions!(root, entries, topics)
       entries.each { |entry| apply(root, entry) }
+      topics.each { |topic| generate_topic(root, topic) }
 
       root
     end
 
     private
 
-    attr_reader :environment, :pages_path
+    attr_reader :environment, :pages_path, :topic_template_path
 
     def writing_resources(root)
       root.resources.flatten.select { |resource| writing_resource?(resource) }
@@ -127,11 +132,36 @@ module Writing
       end
     end
 
+    def validate_topic_template!
+      return if topic_template_path.file?
+
+      fail Invalid, "Writing topic template must be a file: #{topic_template_path}"
+    end
+
+    def validate_topic_collisions!(root, entries, topics)
+      topics.each do |topic|
+        existing = topic_target(topic).existing_resource(root)
+        next unless existing
+
+        fail Invalid,
+          "Generated writing topic path #{topic.request_path} for slug #{topic.slug.inspect} " \
+          "from #{generated_topic_sources(entries, topic).join(", ")} collides with #{existing.source.path}"
+      end
+    end
+
     def canonical_target(path)
       sitepress_path = Sitepress::Path.new(path.request_path)
       format = sitepress_path.format || Sitepress::Node::DEFAULT_FORMAT
 
       Target.new(node_names: sitepress_path.node_names, format: format)
+    end
+
+    def topic_target(topic)
+      path = Sitepress::Path.new(topic.request_path)
+      Target.new(
+        node_names: path.node_names,
+        format: path.format || Sitepress::Node::DEFAULT_FORMAT
+      )
     end
 
     def topics_from(resource, path)
@@ -143,6 +173,22 @@ module Writing
     def topic_occurrences(entries)
       entries.flat_map do |entry|
         entry.topics.map { |topic| [topic, entry.path.source_path] }
+      end
+    end
+
+    def generated_topics(entries)
+      entries
+        .select { |entry| entry.path.post? || environment != "production" }
+        .flat_map(&:topics)
+        .uniq(&:slug)
+    end
+
+    def generated_topic_sources(entries, topic)
+      entries.flat_map do |entry|
+        next [] unless entry.path.post? || environment != "production"
+        next [] unless entry.topics.any? { |entry_topic| entry_topic.slug == topic.slug }
+
+        entry.path.source_path
       end
     end
 
@@ -184,6 +230,16 @@ module Writing
       resource.remove
       resource.format = entry.target.format
       resource.node = destination
+    end
+
+    def generate_topic(root, topic)
+      target = topic_target(topic)
+      node = target.materialize(root)
+      node.resources.add Sitepress::Resource.new(
+        source: Writing::TopicPage.new(path: topic_template_path, topic: topic),
+        node: node,
+        format: target.format
+      )
     end
 
     def validate_page_source!(resource)
