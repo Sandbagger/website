@@ -13,7 +13,7 @@ Rails 8 + SQLite (via Litestack) + Phlex views + Sitepress for static content + 
 - `./go spec` — runs `bundle exec rspec` (note: test suite is actually Minitest under `test/`; use `bin/rails test` for those).
 - `bin/rails test test/controllers/feed_controller_test.rb` — run a single test file.
 - `bundle exec standardrb` — lint (uses the `standard` gem).
-- `./go write` — scaffold a new `app/content/pages/writing/drafts/<slug>.markerb` from the template and fill in the title.
+- `./go write` — scaffold a new `app/content/pages/writing/drafts/<slug>.markerb` from the template after prompting for its title and comma-separated topics.
 - `bin/deploy` — production deploy via Kamal (loads `.env.deploy`, delegates to `bundle exec kamal`). See `docs/DEPLOY.md`.
 
 ## Architecture
@@ -41,7 +41,10 @@ Writing drafts live in `app/content/pages/writing/drafts/`. Published and
 scheduled posts live in `app/content/pages/writing/posts/`, with a filename of
 `YYYY-MM-DD-<slug>.markerb`. Create a draft with `./go write`; it uses
 `app/content/templates/writing.makerb` and refuses to overwrite an existing
-draft.
+draft. The command requires a comma-separated topic list, trims each label,
+and writes the result as the canonical singular `topic:` YAML array. For
+hand-authored files, `topic` must be a non-empty YAML array of nonblank strings;
+comma-separated frontmatter scalars are not accepted.
 
 Publish a draft by moving it to `posts/` with its Brussels publication day:
 

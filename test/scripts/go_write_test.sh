@@ -17,6 +17,15 @@ make_project() {
 }
 
 run_write() {
+  local project_dir=$1 title=$2 topics=$3 output=$4
+
+  (
+    cd "$project_dir"
+    printf '%s\n%s\n' "$title" "$topics" | ./go write
+  ) > "$output" 2>&1
+}
+
+run_write_without_topics() {
   local project_dir=$1 title=$2 output=$3
 
   (
@@ -31,6 +40,16 @@ assert_yaml_title() {
   ruby -ryaml -e \
     'abort unless YAML.safe_load(File.read(ARGV[0])).fetch("title") == ARGV[1]' \
     "$draft_path" "$expected_title"
+}
+
+assert_yaml_topics() {
+  local draft_path=$1
+  shift
+
+  ruby -ryaml -e '
+    actual = YAML.safe_load(File.read(ARGV.shift)).fetch("topic")
+    abort "topics mismatch: #{actual.inspect}" unless actual == ARGV
+  ' "$draft_path" "$@"
 }
 
 assert_no_success() {
@@ -59,7 +78,7 @@ mkdir -p "$published_posts_dir"
 published_post="$published_posts_dir/2024-03-10-my-new-post.markerb"
 printf '%s\n' 'published post sentinel' > "$published_post"
 published_checksum_before=$(cksum < "$published_post")
-if run_write "$published_project" 'My New Post' \
+if run_write "$published_project" 'My New Post' 'Ruby' \
   "$published_project/write.out"; then
   echo 'expected a published slug to block draft creation' >&2
   exit 1
@@ -79,7 +98,7 @@ make_project "$invalid_post_project"
 invalid_posts_dir="$invalid_post_project/app/content/pages/writing/posts"
 mkdir -p "$invalid_posts_dir"
 printf '%s\n' 'invalid post sentinel' > "$invalid_posts_dir/not-dated.markerb"
-if run_write "$invalid_post_project" 'New Draft' \
+if run_write "$invalid_post_project" 'New Draft' 'Ruby' \
   "$invalid_post_project/write.out"; then
   echo 'expected an invalid post filename to block draft creation' >&2
   exit 1
@@ -95,11 +114,13 @@ assert_no_partial_draft \
 
 basic_project="$temp_dir/basic"
 make_project "$basic_project"
-run_write "$basic_project" 'My New Post' "$basic_project/write.out"
+run_write "$basic_project" 'My New Post' \
+  ' Ruby on Rails , Sitepress ' "$basic_project/write.out"
 
 draft_path="$basic_project/app/content/pages/writing/drafts/my-new-post.markerb"
 test -f "$draft_path"
 assert_yaml_title "$draft_path" 'My New Post'
+assert_yaml_topics "$draft_path" 'Ruby on Rails' 'Sitepress'
 ruby -e '
   modes = ARGV.map { File.stat(_1).mode & 0777 }
   abort "mode mismatch: template=%04o draft=%04o" % modes unless modes.uniq.one?
@@ -113,7 +134,8 @@ test ! -d "$basic_project/app/content/pages/writing/posts"
 
 printf '\nsentinel content\n' >> "$draft_path"
 checksum_before=$(cksum < "$draft_path")
-if run_write "$basic_project" 'My New Post' "$basic_project/duplicate.out"; then
+if run_write "$basic_project" 'My New Post' 'Ruby' \
+  "$basic_project/duplicate.out"; then
   echo 'expected existing draft to be refused' >&2
   exit 1
 fi
@@ -126,27 +148,27 @@ assert_no_success "$basic_project/duplicate.out"
 safe_project="$temp_dir/safe-input"
 make_project "$safe_project"
 path_title='../../Escaped/Post'
-run_write "$safe_project" "$path_title" "$safe_project/path.out"
+run_write "$safe_project" "$path_title" 'Ruby' "$safe_project/path.out"
 safe_draft="$safe_project/app/content/pages/writing/drafts/escaped-post.markerb"
 test -f "$safe_draft"
 assert_yaml_title "$safe_draft" "$path_title"
 test ! -e "$safe_project/Escaped"
 
 quoted_title='  A & B: "quoted" \ slash  '
-run_write "$safe_project" "$quoted_title" "$safe_project/quoted.out"
+run_write "$safe_project" "$quoted_title" 'Ruby' "$safe_project/quoted.out"
 quoted_draft="$safe_project/app/content/pages/writing/drafts/a-b-quoted-slash.markerb"
 test -f "$quoted_draft"
 assert_yaml_title "$quoted_draft" "$quoted_title"
 
 unicode_title='Café — Déjà'
-run_write "$safe_project" "$unicode_title" "$safe_project/unicode.out"
+run_write "$safe_project" "$unicode_title" 'Ruby' "$safe_project/unicode.out"
 unicode_draft="$safe_project/app/content/pages/writing/drafts/caf-d-j.markerb"
 test -f "$unicode_draft"
 assert_yaml_title "$unicode_draft" "$unicode_title"
 
 for invalid_title in '' '...///!!!'; do
   invalid_output="$safe_project/invalid-${#invalid_title}.out"
-  if run_write "$safe_project" "$invalid_title" "$invalid_output"; then
+  if run_write "$safe_project" "$invalid_title" 'Ruby' "$invalid_output"; then
     echo "expected title without ASCII alphanumerics to be refused" >&2
     exit 1
   fi
@@ -155,6 +177,50 @@ for invalid_title in '' '...///!!!'; do
   assert_no_success "$invalid_output"
 done
 
+
+yaml_project="$temp_dir/yaml-topics"
+make_project "$yaml_project"
+yaml_topics=' true , null , 123 , A: B , hash # label , [brackets] , "quotes" , back\slash '
+run_write "$yaml_project" 'YAML Topics' "$yaml_topics" \
+  "$yaml_project/write.out"
+yaml_draft="$yaml_project/app/content/pages/writing/drafts/yaml-topics.markerb"
+assert_yaml_topics "$yaml_draft" \
+  'true' 'null' '123' 'A: B' 'hash # label' '[brackets]' '"quotes"' 'back\slash'
+
+for invalid_topics in '' '   ' ',Ruby' 'Ruby,,Rails' 'Ruby,' 'Ruby,   ' \
+  'Ruby, ruby'; do
+  invalid_topic_project="$temp_dir/invalid-topic-${#invalid_topics}"
+  make_project "$invalid_topic_project"
+  invalid_topic_output="$invalid_topic_project/write.out"
+  if run_write "$invalid_topic_project" 'Invalid Topics' "$invalid_topics" \
+    "$invalid_topic_output"; then
+    echo "expected invalid topics to be refused: $invalid_topics" >&2
+    exit 1
+  fi
+  grep -Fx \
+    'Topics must be a non-empty comma-separated list without blank or duplicate labels' \
+    "$invalid_topic_output"
+  test ! -e \
+    "$invalid_topic_project/app/content/pages/writing/drafts/invalid-topics.markerb"
+  test ! -d "$invalid_topic_project/app/content/pages/writing/drafts"
+  assert_no_success "$invalid_topic_output"
+  assert_no_partial_draft \
+    "$invalid_topic_project/app/content/pages/writing/drafts"
+done
+
+eof_project="$temp_dir/topic-eof"
+make_project "$eof_project"
+if run_write_without_topics "$eof_project" 'Topic EOF' \
+  "$eof_project/write.out"; then
+  echo 'expected topic EOF to be refused' >&2
+  exit 1
+fi
+grep -Fx 'Failed to read topics' "$eof_project/write.out"
+test ! -e "$eof_project/app/content/pages/writing/drafts/topic-eof.markerb"
+test ! -d "$eof_project/app/content/pages/writing/drafts"
+assert_no_success "$eof_project/write.out"
+assert_no_partial_draft "$eof_project/app/content/pages/writing/drafts"
+
 dangling_project="$temp_dir/dangling"
 make_project "$dangling_project"
 dangling_drafts="$dangling_project/app/content/pages/writing/drafts"
@@ -162,7 +228,8 @@ mkdir -p "$dangling_drafts"
 dangling_path="$dangling_drafts/dangling.markerb"
 ln -s "$dangling_project/missing-target" "$dangling_path"
 dangling_target=$(readlink "$dangling_path")
-if run_write "$dangling_project" 'Dangling' "$dangling_project/write.out"; then
+if run_write "$dangling_project" 'Dangling' 'Ruby' \
+  "$dangling_project/write.out"; then
   echo 'expected dangling symlink destination to be refused' >&2
   exit 1
 fi
@@ -175,7 +242,8 @@ assert_no_partial_draft "$dangling_drafts"
 missing_project="$temp_dir/missing-template"
 make_project "$missing_project"
 rm "$missing_project/app/content/templates/writing.makerb"
-if run_write "$missing_project" 'Missing Template' "$missing_project/write.out"; then
+if run_write "$missing_project" 'Missing Template' 'Ruby' \
+  "$missing_project/write.out"; then
   echo 'expected missing template to fail' >&2
   exit 1
 fi
@@ -193,7 +261,8 @@ exit 73
 SH
 chmod +x "$copy_project/bin/cp"
 if PATH="$copy_project/bin:$PATH" \
-  run_write "$copy_project" 'Copy Failure' "$copy_project/write.out"; then
+  run_write "$copy_project" 'Copy Failure' 'Ruby' \
+    "$copy_project/write.out"; then
   echo 'expected template copy failure to fail' >&2
   exit 1
 fi
@@ -209,7 +278,7 @@ cat > "$substitution_project/app/content/templates/writing.makerb" <<'TEMPLATE'
 topic:
 ---
 TEMPLATE
-if run_write "$substitution_project" 'No Title Field' \
+if run_write "$substitution_project" 'No Title Field' 'Ruby' \
   "$substitution_project/write.out"; then
   echo 'expected missing title field to fail' >&2
   exit 1
@@ -220,3 +289,23 @@ test ! -e \
 assert_no_success "$substitution_project/write.out"
 assert_no_partial_draft \
   "$substitution_project/app/content/pages/writing/drafts"
+
+missing_topic_project="$temp_dir/missing-topic-field"
+make_project "$missing_topic_project"
+cat > "$missing_topic_project/app/content/templates/writing.makerb" <<'TEMPLATE'
+---
+title:
+---
+TEMPLATE
+if run_write "$missing_topic_project" 'No Topic Field' 'Ruby, Sitepress' \
+  "$missing_topic_project/write.out"; then
+  echo 'expected missing topic field to fail' >&2
+  exit 1
+fi
+grep -Fx 'Failed to populate topics in draft' \
+  "$missing_topic_project/write.out"
+test ! -e \
+  "$missing_topic_project/app/content/pages/writing/drafts/no-topic-field.markerb"
+assert_no_success "$missing_topic_project/write.out"
+assert_no_partial_draft \
+  "$missing_topic_project/app/content/pages/writing/drafts"

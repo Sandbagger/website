@@ -54,6 +54,25 @@ function write {
     return 1
   fi
 
+  echo "Enter comma-separated topics for your blog post:"
+  if ! IFS= read -r topic_input; then
+    echo "Failed to read topics" >&2
+    return 1
+  fi
+
+  if topics_json=$(ruby -rjson -e '
+    topics = ARGV.fetch(0).strip.split(",", -1).map(&:strip)
+    duplicates = topics.map(&:downcase).uniq.length != topics.length
+    exit 1 if topics.empty? || topics.any?(&:empty?) || duplicates
+
+    print JSON.generate(topics)
+  ' "$topic_input"); then
+    :
+  else
+    echo "Topics must be a non-empty comma-separated list without blank or duplicate labels" >&2
+    return 1
+  fi
+
   filename="$slug.markerb"
   drafts_dir="app/content/pages/writing/drafts"
   posts_dir="app/content/pages/writing/posts"
@@ -118,17 +137,35 @@ function write {
     return 1
   fi
 
-  if ! ruby -rjson -e '
-    path, title = ARGV
+  if ruby -rjson -e '
+    path, title, topics_json = ARGV
     content = File.binread(path)
-    replaced = content.sub!(/^title:[^\r\n]*(\r?)$/) do
+    title_replaced = content.sub!(/^title:[^\r\n]*(\r?)$/) do
       "title: #{JSON.generate(title)}#{Regexp.last_match(1)}"
     end
-    exit 1 unless replaced
+    exit 1 unless title_replaced
+
+    topics = JSON.parse(topics_json)
+    topic_replaced = content.sub!(/^topic:(\r?\n)  - Topic(?:\r?\n|\z)/) do
+      newline = Regexp.last_match(1)
+      trailing_newline = Regexp.last_match(0).end_with?("\n") ? newline : ""
+      values = topics.map { "  - #{JSON.generate(_1)}" }.join(newline)
+
+      "topic:#{newline}#{values}#{trailing_newline}"
+    end
+    exit 2 unless topic_replaced
+
     File.binwrite(path, content)
-  ' "$temporary_path" "$input"; then
+  ' "$temporary_path" "$input" "$topics_json"; then
+    :
+  else
+    substitution_status=$?
     rm -f "$temporary_path"
-    echo "Failed to populate title in draft" >&2
+    if [[ "$substitution_status" -eq 2 ]]; then
+      echo "Failed to populate topics in draft" >&2
+    else
+      echo "Failed to populate title in draft" >&2
+    fi
     return 1
   fi
 
