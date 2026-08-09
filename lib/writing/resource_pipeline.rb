@@ -54,10 +54,11 @@ module Writing
       validate_legacy_metadata!(entries)
       validate_slug_uniqueness!(entries)
       validate_topic_registry!(entries)
+      topic_plan = planned_topics(entries)
       topics = generated_topics(entries)
       validate_topic_template!
       validate_collisions!(root, entries)
-      validate_topic_collisions!(root, entries, topics)
+      validate_topic_collisions!(root, entries, topic_plan)
       entries.each { |entry| apply(root, entry) }
       topics.each { |topic| generate_topic(root, topic) }
 
@@ -145,7 +146,7 @@ module Writing
 
         fail Invalid,
           "Generated writing topic path #{topic.request_path} for slug #{topic.slug.inspect} " \
-          "from #{generated_topic_sources(entries, topic).join(", ")} collides with #{existing.source.path}"
+          "from #{topic_sources(entries, topic).join(", ")} collides with #{existing.source.path}"
       end
     end
 
@@ -177,15 +178,15 @@ module Writing
     end
 
     def generated_topics(entries)
-      entries
-        .select { |entry| entry.path.post? || environment != "production" }
-        .flat_map(&:topics)
-        .uniq(&:slug)
+      planned_topics(entries.select { |entry| entry.path.post? || environment != "production" })
     end
 
-    def generated_topic_sources(entries, topic)
+    def planned_topics(entries)
+      entries.flat_map(&:topics).uniq(&:slug)
+    end
+
+    def topic_sources(entries, topic)
       entries.flat_map do |entry|
-        next [] unless entry.path.post? || environment != "production"
         next [] unless entry.topics.any? { |entry_topic| entry_topic.slug == topic.slug }
 
         entry.path.source_path

@@ -218,6 +218,26 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_instance_of Writing::TopicPage, root.get("/writing/topics/scheduled").source
   end
 
+  test "production validates draft-only topic collisions before removing drafts" do
+    root = Sitepress::Node.new
+    draft_path = "app/content/pages/writing/drafts/draft.markerb"
+    existing_path = "app/content/pages/legacy/draft-only.markerb"
+    draft = add_resource(root, draft_path, "topic" => ["Draft only"])
+    existing = add_resource_at(root, existing_path, "/writing/topics/draft-only")
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) do
+      process(root, environment: "production")
+    end
+
+    assert_includes error.message, '"draft-only"'
+    assert_includes error.message, draft_path
+    assert_includes error.message, existing_path
+    assert_same draft, root.get("/writing/drafts/draft")
+    assert_same existing, root.get("/writing/topics/draft-only")
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
   test "non-production generates topics found in drafts" do
     root = Sitepress::Node.new
     add_resource(root, "app/content/pages/writing/drafts/draft.markerb", "topic" => ["Draft only"])
