@@ -58,6 +58,24 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     end
   end
 
+  test "entry defensively freezes a copy of its topics" do
+    root = Sitepress::Node.new
+    source_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"
+    resource = add_resource(root, source_path)
+    topics = [Writing::Topic.new(label: "Ruby")]
+    entry = Writing::ResourcePipeline::Entry.new(
+      resource: resource,
+      path: Writing::Path.new(source_path),
+      target: nil,
+      topics: topics
+    )
+
+    topics << Writing::Topic.new(label: "Phlex")
+
+    assert_equal ["Ruby"], entry.topics.map(&:label)
+    assert_predicate entry.topics, :frozen?
+  end
+
   test "entry rejects invalid members" do
     root = Sitepress::Node.new
     source_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"

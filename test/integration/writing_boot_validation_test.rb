@@ -31,7 +31,8 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     runner_sentinel = "WRITING_TOPIC_RUNNER_EXECUTED"
     stdout, stderr, status, source_path, temporary_root = capture_invalid_boot(
       runner_sentinel,
-      "topic: Ruby"
+      topic: "Ruby",
+      metadata: nil
     )
     output = stdout + stderr
 
@@ -40,6 +41,18 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     assert_includes output, source_path.to_s
     refute_includes output, runner_sentinel
     refute_predicate temporary_root, :exist?
+  end
+
+  test "scalar-topic boot fixture contains exactly one topic key" do
+    Dir.mktmpdir("writing-boot-validation") do |directory|
+      temporary_root = Pathname.new(directory)
+      FileUtils.mkdir_p(temporary_root.join("app/content/pages/writing/posts"))
+      source_path = write_invalid_resource(temporary_root, topic: "Ruby", metadata: nil)
+      contents = File.read(source_path)
+
+      assert_equal 1, contents.lines.grep(/^topic:/).size
+      assert_includes contents, "topic: Ruby"
+    end
   end
 
   private
@@ -55,12 +68,12 @@ class WritingBootValidationTest < ActiveSupport::TestCase
   ].freeze
   SAFE_CONFIG_DIRECTORIES = %w[environments initializers locales].freeze
 
-  def capture_invalid_boot(runner_sentinel, metadata = "status: draft")
+  def capture_invalid_boot(runner_sentinel, topic: ["Ruby"], metadata: "status: draft")
     temporary_root = nil
     result = Dir.mktmpdir("writing-boot-validation") do |directory|
       temporary_root = Pathname.new(directory)
       build_temporary_application(temporary_root)
-      source_path = write_invalid_resource(temporary_root, metadata)
+      source_path = write_invalid_resource(temporary_root, topic:, metadata:)
 
       [
         *run_boot(temporary_root, runner_sentinel),
@@ -113,7 +126,7 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     end
   end
 
-  def write_invalid_resource(temporary_root, metadata)
+  def write_invalid_resource(temporary_root, topic:, metadata:)
     source_path = temporary_root.join(
       "app/content/pages/writing/posts/2000-01-01-boot-invalid-#{SecureRandom.hex(8)}.markerb"
     )
@@ -121,14 +134,18 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     File.write(source_path, <<~CONTENT)
       ---
       title: Invalid boot resource
-      topic:
-        - Ruby
-      #{metadata}
+      #{topic_metadata(topic)}#{metadata}
       ---
       Invalid boot resource
     CONTENT
 
     source_path
+  end
+
+  def topic_metadata(topic)
+    return "topic: #{topic}\n" unless topic.is_a?(Array)
+
+    "topic:\n#{topic.map { |label| "  - #{label}\n" }.join}"
   end
 
   def run_boot(temporary_root, runner_sentinel)

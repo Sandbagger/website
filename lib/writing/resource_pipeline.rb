@@ -29,6 +29,10 @@ module Writing
       def initialize(resource:, path:, target:, topics:)
         super
       end
+
+      def after_initialize
+        @topics = topics.dup.freeze
+      end
     end
 
     def initialize(environment:, pages_path:)
