@@ -167,16 +167,26 @@ test -f "$unicode_draft"
 assert_yaml_title "$unicode_draft" "$unicode_title"
 
 for invalid_title in '' '...///!!!'; do
-  invalid_output="$safe_project/invalid-${#invalid_title}.out"
-  if run_write "$safe_project" "$invalid_title" 'Ruby' "$invalid_output"; then
+  invalid_title_project="$temp_dir/invalid-title-${#invalid_title}"
+  make_project "$invalid_title_project"
+  invalid_output="$invalid_title_project/write.out"
+  if run_write "$invalid_title_project" "$invalid_title" 'Ruby' \
+    "$invalid_output"; then
     echo "expected title without ASCII alphanumerics to be refused" >&2
     exit 1
   fi
   grep -Fx 'Title must contain at least one ASCII letter or number' \
     "$invalid_output"
+  if grep -Fq 'Enter comma-separated topics for your blog post:' \
+    "$invalid_output"; then
+    echo 'topic prompt appeared before title validation' >&2
+    exit 1
+  fi
+  test ! -d "$invalid_title_project/app/content/pages/writing/drafts"
   assert_no_success "$invalid_output"
+  assert_no_partial_draft \
+    "$invalid_title_project/app/content/pages/writing/drafts"
 done
-
 
 yaml_project="$temp_dir/yaml-topics"
 make_project "$yaml_project"
