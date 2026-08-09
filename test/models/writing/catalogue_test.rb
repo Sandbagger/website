@@ -179,6 +179,24 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
     assert_equal catalogue([ruby, phlex]).published, catalogue([ruby, phlex]).published(topic: nil)
   end
 
+  test "published rejects false as a topic instead of broadening results" do
+    ruby = resource("/writing/ruby", "writing/posts/2025-10-12-ruby.markerb", "topic" => ["Ruby"])
+
+    assert_raises(ArgumentError) { catalogue([ruby]).published(topic: false) }
+  end
+
+  test "published rejects non-topic values instead of broadening results" do
+    ruby = resource("/writing/ruby", "writing/posts/2025-10-12-ruby.markerb", "topic" => ["Ruby"])
+
+    assert_raises(ArgumentError) { catalogue([ruby]).published(topic: "Ruby") }
+  end
+
+  test "published does not match a differently capitalized typed topic" do
+    ruby = resource("/writing/ruby", "writing/posts/2025-10-12-ruby.markerb", "topic" => ["Ruby"])
+
+    assert_empty catalogue([ruby]).published(topic: Writing::Topic.new(label: "ruby"))
+  end
+
   test "published ignores generated topic pages and unrelated resources without writing metadata" do
     post = resource("/writing/post", "writing/posts/2025-10-12-post.markerb", "topic" => ["Ruby"])
     topic_page = topic_page_resource("/writing/topics/ruby")

@@ -18,9 +18,11 @@ module Writing
     end
 
     def published(exclude: nil, topic: nil)
+      validate_topic!(topic)
+
       entries
         .select { |entry| policy.published?(entry.path) }
-        .then { |published_entries| topic ? published_entries.select { |entry| entry.topics.include?(topic) } : published_entries }
+        .then { |published_entries| topic.nil? ? published_entries : published_entries.select { |entry| entry.topics.include?(topic) } }
         .reject { |entry| entry.resource.request_path == exclude }
         .sort_by { |entry| entry.path.publication_date }
         .reverse
@@ -30,6 +32,12 @@ module Writing
     private
 
     attr_reader :policy, :resources
+
+    def validate_topic!(topic)
+      return if topic.nil? || topic.is_a?(Writing::Topic)
+
+      fail ArgumentError, "topic must be a Writing::Topic or nil"
+    end
 
     def entries
       resources.filter_map do |resource|
