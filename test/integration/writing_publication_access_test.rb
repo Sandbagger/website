@@ -79,7 +79,7 @@ class WritingPublicationAccessTest < ActionDispatch::IntegrationTest
     Dir.mktmpdir("writing-publication-access") do |directory|
       source_path = File.join(directory, source_name)
       FileUtils.mkdir_p(File.dirname(source_path))
-      File.write(source_path, "---\ntitle: Preview\n---\nPreview body\n")
+      File.write(source_path, "---\ntitle: Preview\ntopic:\n  - Ruby\n---\nPreview body\n")
 
       source = Sitepress::Page.new(path: source_path)
       path = Sitepress::Path.new(request_path)
@@ -92,6 +92,7 @@ class WritingPublicationAccessTest < ActionDispatch::IntegrationTest
         format: :html
       )
 
+      assert_equal ["Ruby"], resource.data["topic"].to_a
       yield resource
     ensure
       resource&.remove
