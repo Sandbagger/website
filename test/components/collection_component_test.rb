@@ -63,14 +63,16 @@ class CollectionComponentTest < ActiveSupport::TestCase
     assert_nil document.at_css("ol.article-list")
   end
 
-  test "missing topic and date produce a title link without placeholders" do
-    document = render_component(
-      [resource("/writing/title-only", "Title only")],
-      context: :archive
-    )
+  test "missing topic metadata raises with the resource diagnostic path" do
+    error = assert_raises(Writing::Topic::Invalid) do
+      render_component(
+        [Resource.new("/writing/title-only", Sitepress::Data.manage("title" => "Title only"))],
+        context: :archive
+      )
+    end
 
-    assert_equal "Title only", document.at_css(".article-row h3 a").text
-    assert_nil document.at_css(".article-row .article-meta")
+    assert_includes error.message, %("/writing/title-only")
+    assert_includes error.message, "missing topic metadata"
   end
 
   test "blank titles fall back to request paths in titles and aria labels" do
@@ -109,9 +111,9 @@ class CollectionComponentTest < ActiveSupport::TestCase
     Nokogiri::HTML5.fragment(html)
   end
 
-  def resource(path, title, topics: nil, publish_at: nil)
+  def resource(path, title, topics: ["Ruby"], publish_at: nil)
     data = {"title" => title}
-    data["topic"] = topics if topics
+    data["topic"] = topics
     data["publish_at"] = publish_at if publish_at
 
     Resource.new(path, Sitepress::Data.manage(data))

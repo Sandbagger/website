@@ -115,8 +115,6 @@ class CollectionComponent < ApplicationComponent
   end
 
   def resource_topics(resource)
-    return [] unless resource.data.key?("topic")
-
     Writing::Topic.from(resource.data, source_path: resource_source_path(resource))
   end
 
