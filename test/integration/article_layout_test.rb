@@ -10,6 +10,8 @@ class ArticleLayoutTest < ActionDispatch::IntegrationTest
       assert_select "h1", text: "Michael Pettis on Good Tariffs vs Bad"
       assert_select ".article-meta", text: /Macroeconomics/
       assert_select ".article-meta", text: /12 October 2025/
+      assert_select ".article-meta a[href='/writing/topics/tariffs']", text: "Tariffs"
+      assert_select ".article-meta a[href='/writing/topics/macroeconomics']", text: "Macroeconomics"
 
       images = css_select("img.article-cover")
 
@@ -36,6 +38,8 @@ class ArticleLayoutTest < ActionDispatch::IntegrationTest
       assert_select "aside.article-facts", 1
       assert_select "article.prose", 1
       assert_select "article.prose h2", minimum: 1
+      assert_select ".article-facts dd a[href='/writing/topics/tariffs']", text: "Tariffs"
+      assert_select ".article-facts dd a[href='/writing/topics/macroeconomics']", text: "Macroeconomics"
     end
   end
 

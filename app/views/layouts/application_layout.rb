@@ -74,8 +74,8 @@ class ApplicationLayout < ApplicationView
     @page_kind = kind.to_sym
   end
 
-  def page_metadata(topic: nil, publish_at: nil)
-    @page_metadata = {topic:, publish_at:}.compact_blank
+  def page_metadata(topics: [], publish_at: nil)
+    @page_metadata = {topics:, publish_at:}.compact_blank
   end
   # standard:enable Style/TrivialAccessors
 
@@ -134,8 +134,15 @@ class ApplicationLayout < ApplicationView
   end
 
   def article_metadata
-    metadata = [formatted_topic, formatted_publish_date].compact
-    p(class: "article-meta") { metadata.join(" · ") } if metadata.any?
+    topics = @page_metadata[:topics] || []
+    date = formatted_publish_date
+    return if topics.empty? && date.blank?
+
+    p(class: "article-meta") do
+      render TopicLinksComponent.new(topics)
+      plain " · " if topics.any? && date.present?
+      plain date if date
+    end
   end
 
   def article_header_classes
@@ -146,24 +153,18 @@ class ApplicationLayout < ApplicationView
     aside(class: "article-facts") do
       span(class: "eyebrow") { "Filed under" }
       dl do
-        fact("Topics", formatted_topic)
+        topics = @page_metadata[:topics] || []
+        fact("Topics") { render TopicLinksComponent.new(topics) } if topics.any?
         fact("Published", formatted_publish_date)
       end
     end
   end
 
-  def fact(label, value)
-    return if value.blank?
+  def fact(label, value = nil)
+    return if value.blank? && !block_given?
 
     dt { label }
-    dd { value }
-  end
-
-  def formatted_topic
-    topic = @page_metadata[:topic]
-    return if topic.blank?
-
-    topic.to_a.join(" · ")
+    dd { block_given? ? yield : value }
   end
 
   def formatted_publish_date

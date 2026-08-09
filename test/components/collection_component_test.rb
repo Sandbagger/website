@@ -88,13 +88,18 @@ class CollectionComponentTest < ActiveSupport::TestCase
       document.css(".article-row > a").map { |link| link["aria-label"] }
   end
 
-  test "topic arrays render as dot-separated metadata" do
+  test "topic arrays render linked metadata before the date" do
     document = render_component(
-      [Resource.new("/writing/topic-array", {"title" => "Topics", "topic" => ["Ruby", "Phlex"]})],
+      [resource("/writing/topic-array", "Topics", topics: ["Ruby", "Phlex"], publish_at: Date.new(2025, 10, 12))],
       context: :archive
     )
 
-    assert_equal "Ruby · Phlex", document.at_css(".article-meta").text
+    metadata = document.at_css(".article-meta")
+
+    assert_equal ["Ruby", "Phlex"], metadata.css("a").map(&:text)
+    assert_equal ["/writing/topics/ruby", "/writing/topics/phlex"],
+      metadata.css("a").map { |link| link["href"] }
+    assert_equal "Ruby · Phlex · 12 October 2025", metadata.text
   end
 
   private
@@ -104,7 +109,11 @@ class CollectionComponentTest < ActiveSupport::TestCase
     Nokogiri::HTML5.fragment(html)
   end
 
-  def resource(path, title)
-    Resource.new(path, {"title" => title})
+  def resource(path, title, topics: nil, publish_at: nil)
+    data = {"title" => title}
+    data["topic"] = topics if topics
+    data["publish_at"] = publish_at if publish_at
+
+    Resource.new(path, Sitepress::Data.manage(data))
   end
 end

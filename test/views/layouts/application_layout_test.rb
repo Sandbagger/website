@@ -42,7 +42,7 @@ class ApplicationLayoutTest < ActiveSupport::TestCase
     end.new
     layout.page_kind(:article)
     layout.page_title("Blank metadata")
-    layout.page_metadata(topic: "", publish_at: "")
+    layout.page_metadata(topics: [], publish_at: "")
 
     document = Nokogiri::HTML5.parse(layout.call)
 
@@ -50,16 +50,22 @@ class ApplicationLayoutTest < ActiveSupport::TestCase
     assert_nil document.at_css(".article-facts")
   end
 
-  test "article metadata renders topic arrays as dot-separated plain text" do
+  test "article metadata renders linked topics in authored order" do
     layout = article_layout
     layout.page_kind(:article)
     layout.page_title("Topics")
-    layout.page_metadata(topic: ["Ruby", "Phlex"])
+    layout.page_metadata(
+      topics: [Writing::Topic.new(label: "Ruby"), Writing::Topic.new(label: "Phlex")]
+    )
 
     document = Nokogiri::HTML5.parse(layout.call)
 
     assert_equal "Ruby · Phlex", document.at_css(".article-meta").text
     assert_equal "Ruby · Phlex", document.at_css(".article-facts dd").text
+    assert_equal ["/writing/topics/ruby", "/writing/topics/phlex"],
+      document.css(".article-meta a").map { |link| link["href"] }
+    assert_equal ["/writing/topics/ruby", "/writing/topics/phlex"],
+      document.css(".article-facts dd a").map { |link| link["href"] }
   end
 
   private

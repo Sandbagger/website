@@ -31,7 +31,7 @@ module Sitepress
         layout.page_title(page_title_for(page))
         if article
           layout.page_metadata(
-            topic: page.data["topic"],
+            topics: Writing::Topic.from(page.data, source_path: page.source.path),
             publish_at: page.data["publish_at"]
           )
         end

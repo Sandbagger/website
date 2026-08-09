@@ -102,16 +102,28 @@ class CollectionComponent < ApplicationComponent
   end
 
   def resource_metadata(resource)
-    metadata = [formatted_topic(resource.data["topic"]), formatted_date(resource.data["publish_at"])]
-      .compact
+    topics = resource_topics(resource)
+    date = formatted_date(resource.data["publish_at"])
 
-    p(class: "article-meta") { metadata.join(" · ") } if metadata.any?
+    return if topics.empty? && date.blank?
+
+    p(class: "article-meta") do
+      render TopicLinksComponent.new(topics)
+      plain " · " if topics.any? && date.present?
+      plain date if date
+    end
   end
 
-  def formatted_topic(topic)
-    return if topic.blank?
+  def resource_topics(resource)
+    return [] unless resource.data.key?("topic")
 
-    topic.to_a.join(" · ")
+    Writing::Topic.from(resource.data, source_path: resource_source_path(resource))
+  end
+
+  def resource_source_path(resource)
+    source = resource.source if resource.respond_to?(:source)
+
+    source&.path || resource.request_path
   end
 
   def formatted_date(date)
