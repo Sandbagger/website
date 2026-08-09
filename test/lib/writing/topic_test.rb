@@ -51,6 +51,20 @@ class Writing::TopicTest < ActiveSupport::TestCase
     assert_invalid({ "topic" => [""] }, "must not be blank")
   end
 
+  test "identifies the invalid topic label index in metadata errors" do
+    error = assert_raises(Writing::Topic::Invalid) do
+      Writing::Topic.from(
+        Sitepress::Data.manage("topic" => ["Ruby", ""]),
+        source_path: SOURCE_PATH
+      )
+    end
+
+    assert_equal(
+      "Invalid topic metadata in #{SOURCE_PATH.inspect}: topic[1] must not be blank",
+      error.message
+    )
+  end
+
   test "rejects topic labels with surrounding whitespace" do
     assert_invalid({ "topic" => [" Ruby"] }, "must not have surrounding whitespace")
   end

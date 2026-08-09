@@ -18,11 +18,12 @@ module Writing
       validate_members!(labels, source_path)
       validate_duplicates!(labels, source_path)
 
-      labels.map do |label|
+      labels.each_with_index.map do |label, index|
         begin
           new(label: label)
         rescue Invalid => error
-          fail_invalid_metadata!(source_path, error.message)
+          reason = error.message.delete_prefix("topic label ")
+          fail_invalid_metadata!(source_path, "topic[#{index}] #{reason}")
         end
       end.freeze
     rescue KeyError
