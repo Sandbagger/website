@@ -54,6 +54,7 @@ class Writing::TopicTest < ActiveSupport::TestCase
     assert_equal "Ruby on Rails", topic.label
     assert_equal "ruby-on-rails", topic.slug
     assert_equal "/writing/topics/ruby-on-rails", topic.request_path
+    assert_equal topic, Writing::Topic.new(label: "Ruby on Rails")
     assert_predicate topic, :frozen?
     assert_predicate topic.label, :frozen?
   end
@@ -532,6 +533,7 @@ git commit -m "feat(writing): Link article topic metadata"
 Against the real site, assert that `/writing/topics/phlex`:
 
 - resolves to a `Writing::TopicPage` source;
+- retains the canonical resource request path `/writing/topics/phlex`;
 - responds successfully;
 - has `main.page--archive` and `h1` text `Writing about Phlex`;
 - lists the two published Phlex posts newest first;
