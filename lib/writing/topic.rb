@@ -7,7 +7,7 @@ module Writing
     prop :label, String
 
     def self.from(data, source_path:)
-      labels = data.fetch("topic")
+      labels = data.fetch("topic") { fail_invalid_metadata!(source_path, "missing topic metadata") }
       unless labels.is_a?(Sitepress::Data::Collection)
         fail_invalid_metadata!(source_path, "topic must be an array")
       end
@@ -19,15 +19,11 @@ module Writing
       validate_duplicates!(labels, source_path)
 
       labels.each_with_index.map do |label, index|
-        begin
-          new(label: label)
-        rescue Invalid => error
-          reason = error.message.delete_prefix("topic label ")
-          fail_invalid_metadata!(source_path, "topic[#{index}] #{reason}")
-        end
+        new(label: label)
+      rescue Invalid => error
+        reason = error.message.delete_prefix("topic label ")
+        fail_invalid_metadata!(source_path, "topic[#{index}] #{reason}")
       end.freeze
-    rescue KeyError
-      fail_invalid_metadata!(source_path, "missing topic metadata")
     end
 
     def slug = label.parameterize
@@ -51,7 +47,7 @@ module Writing
         labels.each_with_index do |label, index|
           next if label.is_a?(String)
 
-          fail_invalid_metadata!(source_path, "topic at index #{index} must be a string")
+          fail_invalid_metadata!(source_path, "topic[#{index}] must be a string")
         end
       end
 

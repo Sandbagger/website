@@ -7,7 +7,7 @@ class Writing::TopicTest < ActiveSupport::TestCase
   SOURCE_PATH = "app/content/pages/writing/posts/2024-03-10-example.markerb"
 
   test "is an immutable value object with a derived identity" do
-    label = String.new("Ruby on Rails")
+    label = +"Ruby on Rails"
     topic = Writing::Topic.new(label: label)
     equal_topic = Writing::Topic.new(label: "Ruby on Rails")
 
@@ -36,19 +36,19 @@ class Writing::TopicTest < ActiveSupport::TestCase
   end
 
   test "rejects scalar topic metadata without splitting or normalizing it" do
-    assert_invalid({ "topic" => "Ruby on Rails, Phlex" }, "must be an array")
+    assert_invalid({"topic" => "Ruby on Rails, Phlex"}, "must be an array")
   end
 
   test "rejects empty topic metadata" do
-    assert_invalid({ "topic" => [] }, "must not be empty")
+    assert_invalid({"topic" => []}, "must not be empty")
   end
 
   test "rejects non-string topic labels" do
-    assert_invalid({ "topic" => ["Ruby", 1] }, "must be a string")
+    assert_indexed_invalid(["Ruby", 1], "must be a string")
   end
 
   test "rejects blank topic labels" do
-    assert_invalid({ "topic" => [""] }, "must not be blank")
+    assert_invalid({"topic" => [""]}, "must not be blank")
   end
 
   test "identifies the invalid topic label index in metadata errors" do
@@ -66,15 +66,26 @@ class Writing::TopicTest < ActiveSupport::TestCase
   end
 
   test "rejects topic labels with surrounding whitespace" do
-    assert_invalid({ "topic" => [" Ruby"] }, "must not have surrounding whitespace")
+    assert_indexed_invalid(["Ruby", " Ruby"], "must not have surrounding whitespace")
   end
 
   test "rejects case-insensitive duplicate topic labels" do
-    assert_invalid({ "topic" => ["Ruby", "ruby"] }, "duplicate topic")
+    assert_invalid({"topic" => ["Ruby", "ruby"]}, "duplicate topic")
   end
 
   test "rejects labels that cannot produce a parameterized slug" do
-    assert_invalid({ "topic" => ["!!!"] }, "must produce a slug")
+    assert_indexed_invalid(["Ruby", "!!!"], "must produce a slug")
+  end
+
+  test "does not mislabel an internal key error as missing topic metadata" do
+    labels = Sitepress::Data::Collection.new(["Ruby"])
+    labels.define_singleton_method(:to_a) { fail KeyError, "internal failure" }
+    data = Object.new
+    data.define_singleton_method(:fetch) { |_key| labels }
+
+    error = assert_raises(KeyError) { Writing::Topic.from(data, source_path: SOURCE_PATH) }
+
+    assert_equal "internal failure", error.message
   end
 
   private
@@ -86,5 +97,19 @@ class Writing::TopicTest < ActiveSupport::TestCase
 
     assert_includes error.message, SOURCE_PATH
     assert_includes error.message, reason
+  end
+
+  def assert_indexed_invalid(labels, reason)
+    error = assert_raises(Writing::Topic::Invalid) do
+      Writing::Topic.from(
+        Sitepress::Data.manage("topic" => labels),
+        source_path: SOURCE_PATH
+      )
+    end
+
+    assert_equal(
+      "Invalid topic metadata in #{SOURCE_PATH.inspect}: topic[1] #{reason}",
+      error.message
+    )
   end
 end
