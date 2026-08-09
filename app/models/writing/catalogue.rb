@@ -5,11 +5,7 @@ module Writing
     class Entry < Literal::Data
       prop :resource, Sitepress::Resource
       prop :path, Path
-      prop :topics, _Array(Writing::Topic)
-
-      def after_initialize
-        @topics = topics.dup.freeze
-      end
+      prop :topics, _Array(Writing::Topic), &Immutable
     end
 
     def initialize(resources:, policy:)

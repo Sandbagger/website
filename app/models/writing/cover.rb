@@ -7,15 +7,9 @@ module Writing
     class Invalid < StandardError; end
 
     class Variant < Literal::Data
-      prop :src, String
+      prop :src, String, &Immutable
       prop :width, Integer
       prop :height, Integer
-
-      private
-
-      def after_initialize
-        @src = src.dup.freeze
-      end
     end
 
     SIZES = {
@@ -24,7 +18,7 @@ module Writing
       1200 => 630
     }.freeze
 
-    prop :variants, _Array(Variant)
+    prop :variants, _Array(Variant), &Immutable
 
     def self.find(resource, root: Rails.root.join("public/images/posts"))
       slug = Pathname(resource.request_path.to_s).basename.to_s
@@ -77,7 +71,6 @@ module Writing
     def fallback = variants.last
 
     def after_initialize
-      @variants = variants.dup.freeze
       return if variants.map { [_1.width, _1.height] } == SIZES.to_a
 
       raise Invalid,

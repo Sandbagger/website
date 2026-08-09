@@ -66,6 +66,28 @@ class Writing::CoverTest < ActiveSupport::TestCase
     sources.each { refute_predicate _1, :frozen? }
   end
 
+  test "from_props applies the immutable cover seals" do
+    sources = SIZES.map { |width, _height| +"/images/posts/example-#{width}w.webp" }
+    variants = SIZES.map.with_index do |(width, height), index|
+      Writing::Cover::Variant.from_props(
+        src: sources.fetch(index),
+        width: width,
+        height: height
+      )
+    end
+    first_variant = variants.first
+    cover = Writing::Cover.from_props(variants: variants)
+
+    sources.first << "-mutated"
+    variants << first_variant
+
+    assert_equal "/images/posts/example-480w.webp", first_variant.src
+    assert_predicate first_variant.src, :frozen?
+    assert_equal SIZES.to_a, cover.variants.map { [_1.width, _1.height] }
+    assert_predicate cover.variants, :frozen?
+    refute_same variants, cover.variants
+  end
+
   INVALID_DIMENSION_SETS.each do |description, dimensions|
     test "initialization rejects #{description} responsive variants" do
       error = assert_raises(Writing::Cover::Invalid) do

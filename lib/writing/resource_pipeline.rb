@@ -24,14 +24,10 @@ module Writing
       prop :resource, Sitepress::Resource
       prop :path, Path
       prop :target, _Nilable(Target)
-      prop :topics, _Array(Writing::Topic)
+      prop :topics, _Array(Writing::Topic), &Immutable
 
       def initialize(resource:, path:, target:, topics:)
         super
-      end
-
-      def after_initialize
-        @topics = topics.dup.freeze
       end
     end
 

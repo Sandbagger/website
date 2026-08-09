@@ -90,6 +90,25 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
     assert_predicate entry.topics, :frozen?
   end
 
+  test "from_props applies the immutable topics seal" do
+    sitepress_resource = resource(
+      "/writing/example",
+      "writing/posts/2024-03-10-example.markerb"
+    )
+    topics = [Writing::Topic.new(label: "Ruby")]
+    entry = Writing::Catalogue::Entry.from_props(
+      resource: sitepress_resource,
+      path: Writing::Path.new(sitepress_resource.source.path),
+      topics: topics
+    )
+
+    topics << Writing::Topic.new(label: "Phlex")
+
+    assert_equal ["Ruby"], entry.topics.map(&:label)
+    assert_predicate entry.topics, :frozen?
+    refute_same topics, entry.topics
+  end
+
   test "published selects due physical posts newest first" do
     published = resource(
       "/remapped-somewhere-else",

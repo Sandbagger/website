@@ -20,6 +20,17 @@ class Writing::TopicTest < ActiveSupport::TestCase
     refute_same label, topic.label
   end
 
+  test "from_props applies the immutable label seal" do
+    label = +"Ruby"
+    topic = Writing::Topic.from_props(label: label)
+
+    label << " on Rails"
+
+    assert_equal "Ruby", topic.label
+    assert_predicate topic.label, :frozen?
+    refute_same label, topic.label
+  end
+
   test "converts topic collection metadata into immutable topics" do
     topics = Writing::Topic.from(
       Sitepress::Data.manage("topic" => ["Ruby on Rails", "Phlex"]),

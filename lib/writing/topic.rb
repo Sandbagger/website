@@ -4,7 +4,7 @@ module Writing
   class Topic < Literal::Data
     class Invalid < StandardError; end
 
-    prop :label, String
+    prop :label, String, &Immutable
 
     def self.from(data, source_path:)
       labels = data.fetch("topic") { fail_invalid_metadata!(source_path, "missing topic metadata") }
@@ -36,8 +36,6 @@ module Writing
       fail Invalid, "topic label must not be blank" if label.blank?
       fail Invalid, "topic label must not have surrounding whitespace" if label != label.strip
       fail Invalid, "topic label must produce a slug" if slug.empty?
-
-      @label = label.dup.freeze
     end
 
     class << self
