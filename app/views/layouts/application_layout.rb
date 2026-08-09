@@ -163,7 +163,7 @@ class ApplicationLayout < ApplicationView
     topic = @page_metadata[:topic]
     return if topic.blank?
 
-    topic.to_s.split(",").map(&:strip).join(" · ")
+    topic.to_a.join(" · ")
   end
 
   def formatted_publish_date

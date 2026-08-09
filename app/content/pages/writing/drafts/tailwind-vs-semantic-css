@@ -1,6 +1,8 @@
 ---
 title: Interesting Tailwind vs Semantic CSS Artical
-topic: css, tailwind
+topic:
+  - CSS
+  - Tailwind
 # layout: writing
 ---
 
@@ -14,5 +16,4 @@ Tero points to the reigning popularity of CSS-in-JSS approach - but the rise of 
 
 If you are a fullstack developer or frontent developer focusing on single page applications your primary focus is typically   
 Andy Bell makes the point that mastering CSS takes time  
-
 

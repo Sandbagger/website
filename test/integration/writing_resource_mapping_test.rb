@@ -51,7 +51,7 @@ class WritingResourceMappingTest < ActiveSupport::TestCase
     FileUtils.mkdir_p(posts_path)
 
     POSTS.each_key do |filename|
-      File.write(File.join(posts_path, filename), "---\ntitle: Example\n---\nBody\n")
+      File.write(File.join(posts_path, filename), "---\ntitle: Example\ntopic:\n  - Ruby\n---\nBody\n")
     end
 
     Sitepress::Site.new(root_path: directory).tap do |site|

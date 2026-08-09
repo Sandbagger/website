@@ -1,6 +1,7 @@
 ---
 title: Tag Overriding with Phlex in Markdown
-topic: phlex
+topic:
+  - Phlex
 ---
 
 When I am writing markdown, I am writing markdown, I don't have access to the markup.

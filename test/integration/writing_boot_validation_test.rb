@@ -27,6 +27,21 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     refute_predicate temporary_root, :exist?
   end
 
+  test "invalid topic metadata aborts boot before runner code executes" do
+    runner_sentinel = "WRITING_TOPIC_RUNNER_EXECUTED"
+    stdout, stderr, status, source_path, temporary_root = capture_invalid_boot(
+      runner_sentinel,
+      "topic: Ruby"
+    )
+    output = stdout + stderr
+
+    refute_predicate status, :success?, output
+    assert_includes output, "topic must be an array"
+    assert_includes output, source_path.to_s
+    refute_includes output, runner_sentinel
+    refute_predicate temporary_root, :exist?
+  end
+
   private
 
   SAFE_CONFIG_FILES = %w[
@@ -40,12 +55,12 @@ class WritingBootValidationTest < ActiveSupport::TestCase
   ].freeze
   SAFE_CONFIG_DIRECTORIES = %w[environments initializers locales].freeze
 
-  def capture_invalid_boot(runner_sentinel)
+  def capture_invalid_boot(runner_sentinel, metadata = "status: draft")
     temporary_root = nil
     result = Dir.mktmpdir("writing-boot-validation") do |directory|
       temporary_root = Pathname.new(directory)
       build_temporary_application(temporary_root)
-      source_path = write_invalid_resource(temporary_root)
+      source_path = write_invalid_resource(temporary_root, metadata)
 
       [
         *run_boot(temporary_root, runner_sentinel),
@@ -98,7 +113,7 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     end
   end
 
-  def write_invalid_resource(temporary_root)
+  def write_invalid_resource(temporary_root, metadata)
     source_path = temporary_root.join(
       "app/content/pages/writing/posts/2000-01-01-boot-invalid-#{SecureRandom.hex(8)}.markerb"
     )
@@ -106,7 +121,9 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     File.write(source_path, <<~CONTENT)
       ---
       title: Invalid boot resource
-      status: draft
+      topic:
+        - Ruby
+      #{metadata}
       ---
       Invalid boot resource
     CONTENT

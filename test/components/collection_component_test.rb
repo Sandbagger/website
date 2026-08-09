@@ -88,13 +88,13 @@ class CollectionComponentTest < ActiveSupport::TestCase
       document.css(".article-row > a").map { |link| link["aria-label"] }
   end
 
-  test "numeric topics render as metadata" do
+  test "topic arrays render as dot-separated metadata" do
     document = render_component(
-      [Resource.new("/writing/numeric-topic", {"title" => "Numeric", "topic" => 37})],
+      [Resource.new("/writing/topic-array", {"title" => "Topics", "topic" => ["Ruby", "Phlex"]})],
       context: :archive
     )
 
-    assert_equal "37", document.at_css(".article-meta").text
+    assert_equal "Ruby · Phlex", document.at_css(".article-meta").text
   end
 
   private

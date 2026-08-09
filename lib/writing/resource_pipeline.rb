@@ -24,8 +24,9 @@ module Writing
       prop :resource, Sitepress::Resource
       prop :path, Path
       prop :target, _Nilable(Target)
+      prop :topics, _Array(Writing::Topic)
 
-      def initialize(resource:, path:, target:)
+      def initialize(resource:, path:, target:, topics:)
         super
       end
     end
@@ -39,13 +40,15 @@ module Writing
       entries = writing_resources(root).map do |resource|
         validate_page_source!(resource)
         path = Path.new(resource.source.path)
+        topics = topics_from(resource, path)
         target = canonical_target(path) if path.post?
 
-        Entry.new(resource: resource, path: path, target: target)
+        Entry.new(resource: resource, path: path, target: target, topics: topics)
       end
 
       validate_legacy_metadata!(entries)
       validate_slug_uniqueness!(entries)
+      validate_topic_registry!(entries)
       validate_collisions!(root, entries)
       entries.each { |entry| apply(root, entry) }
 
@@ -86,6 +89,27 @@ module Writing
       end
     end
 
+    def validate_topic_registry!(entries)
+      all_occurrences = topic_occurrences(entries)
+
+      all_occurrences.group_by { |topic, _source| topic.label.downcase }.each do |label, occurrences|
+        labels = occurrences.map { |topic, _source| topic.label }.uniq
+        next if labels.one?
+
+        fail Invalid,
+          "Writing topic #{label.inspect} has inconsistent canonical display capitalization: " \
+          "#{format_topic_occurrences(occurrences)}"
+      end
+
+      all_occurrences.group_by { |topic, _source| topic.slug }.each do |slug, occurrences|
+        labels = occurrences.map { |topic, _source| topic.label.downcase }.uniq
+        next if labels.one?
+
+        fail Invalid,
+          "Writing topic slug collision #{slug.inspect}: #{format_topic_occurrences(occurrences)}"
+      end
+    end
+
     def validate_collisions!(root, entries)
       posts_by_target = entries.select { |entry| entry.path.post? }.group_by(&:target)
 
@@ -104,6 +128,22 @@ module Writing
       format = sitepress_path.format || Sitepress::Node::DEFAULT_FORMAT
 
       Target.new(node_names: sitepress_path.node_names, format: format)
+    end
+
+    def topics_from(resource, path)
+      Writing::Topic.from(resource.data, source_path: path.source_path)
+    rescue Writing::Topic::Invalid => error
+      fail Invalid, error.message, cause: error
+    end
+
+    def topic_occurrences(entries)
+      entries.flat_map do |entry|
+        entry.topics.map { |topic| [topic, entry.path.source_path] }
+      end
+    end
+
+    def format_topic_occurrences(occurrences)
+      occurrences.map { |topic, source| "#{topic.label.inspect} in #{source}" }.uniq.join(", ")
     end
 
     def apply(root, entry)

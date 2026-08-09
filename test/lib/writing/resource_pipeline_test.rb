@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require Rails.root.join("lib/writing/topic")
 
 class Writing::ResourcePipelineTest < ActiveSupport::TestCase
   test "entry is an immutable typed value object" do
@@ -15,7 +16,8 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     entry = Writing::ResourcePipeline::Entry.new(
       resource: resource,
       path: path,
-      target: target
+      target: target,
+      topics: topics_for(resource)
     )
     equal_entry = Writing::ResourcePipeline::Entry.new(
       resource: resource,
@@ -23,12 +25,14 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
       target: Writing::ResourcePipeline::Target.new(
         node_names: ["writing", "example"],
         format: :html
-      )
+      ),
+      topics: topics_for(resource)
     )
 
     assert_same resource, entry.resource
     assert_equal path, entry.path
     assert_equal target, entry.target
+    assert_equal ["Ruby"], entry.topics.map(&:label)
     assert_equal entry, equal_entry
     assert entry.eql?(equal_entry)
     assert_equal entry.hash, equal_entry.hash
@@ -44,12 +48,13 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     entry = Writing::ResourcePipeline::Entry.new(
       resource: resource,
       path: path,
-      target: nil
+      target: nil,
+      topics: topics_for(resource)
     )
 
     assert_nil entry.target
     assert_raises(ArgumentError) do
-      Writing::ResourcePipeline::Entry.new(resource: resource, path: path)
+      Writing::ResourcePipeline::Entry.new(resource: resource, path: path, topics: topics_for(resource))
     end
   end
 
@@ -64,13 +69,22 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     )
 
     assert_raises(Literal::TypeError) do
-      Writing::ResourcePipeline::Entry.new(resource: Object.new, path: path, target: target)
+      Writing::ResourcePipeline::Entry.new(
+        resource: Object.new, path: path, target: target, topics: topics_for(resource)
+      )
     end
     assert_raises(Literal::TypeError) do
-      Writing::ResourcePipeline::Entry.new(resource: resource, path: Object.new, target: target)
+      Writing::ResourcePipeline::Entry.new(
+        resource: resource, path: Object.new, target: target, topics: topics_for(resource)
+      )
     end
     assert_raises(Literal::TypeError) do
-      Writing::ResourcePipeline::Entry.new(resource: resource, path: path, target: Object.new)
+      Writing::ResourcePipeline::Entry.new(
+        resource: resource, path: path, target: Object.new, topics: topics_for(resource)
+      )
+    end
+    assert_raises(Literal::TypeError) do
+      Writing::ResourcePipeline::Entry.new(resource: resource, path: path, target: target, topics: ["Ruby"])
     end
   end
 
@@ -343,8 +357,8 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     root = Sitepress::Node.new
     first_path = "app/content/pages/writing/drafts/example.markerb"
     second_path = "app/content/pages/writing/drafts/example.html.markerb"
-    add_resource_at(root, first_path, "/writing/drafts/example")
-    add_resource_at(root, second_path, "/test-fixtures/duplicate-draft")
+    add_resource_at(root, first_path, "/writing/drafts/example", "topic" => ["Ruby"])
+    add_resource_at(root, second_path, "/test-fixtures/duplicate-draft", "topic" => ["Ruby"])
     tree_before = tree_snapshot(root)
 
     error = assert_raises(Writing::ResourcePipeline::Invalid) do
@@ -397,7 +411,7 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     %w[status published publish_at].each do |key|
       root = Sitepress::Node.new
       source_path = "app/content/pages/writing/posts/2024-03-10-#{key}.markerb"
-      resource = add_resource(root, source_path, key => "legacy")
+      resource = add_resource(root, source_path, "topic" => ["Ruby"], key => "legacy")
 
       error = assert_raises(Writing::ResourcePipeline::Invalid) { process(root) }
 
@@ -406,6 +420,79 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
       assert_equal "legacy", resource.data[key]
       assert root.get("/writing/posts/2024-03-10-#{key}")
     end
+  end
+
+  test "rejects invalid topic metadata before mutating the tree" do
+    invalid_topics = {
+      "scalar" => [{"topic" => "Ruby"}, "topic must be an array"],
+      "missing" => [{}, "missing topic metadata"],
+      "empty" => [{"topic" => []}, "topic must not be empty"],
+      "padded" => [{"topic" => [" Ruby"]}, "topic[0] must not have surrounding whitespace"],
+      "non-string" => [{"topic" => [1]}, "topic[0] must be a string"],
+      "duplicate" => [{"topic" => ["Ruby", "ruby"]}, "duplicate topic \"ruby\""]
+    }
+
+    invalid_topics.each do |name, (data, reason)|
+      root = Sitepress::Node.new
+      source_path = "app/content/pages/writing/posts/2024-03-10-#{name}.markerb"
+      add_resource(root, source_path, data)
+      tree_before = tree_snapshot(root)
+
+      error = assert_raises(Writing::ResourcePipeline::Invalid) { process(root) }
+
+      assert_equal "Invalid topic metadata in #{source_path.inspect}: #{reason}", error.message
+      assert_instance_of Writing::Topic::Invalid, error.cause
+      assert_equal tree_before, tree_snapshot(root)
+    end
+  end
+
+  test "identifies invalid topic labels by index" do
+    root = Sitepress::Node.new
+    source_path = "app/content/pages/writing/posts/2024-03-10-invalid-topic.markerb"
+    add_resource(root, source_path, "topic" => ["Ruby", 1])
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) { process(root) }
+
+    assert_includes error.message, "Invalid topic metadata in #{source_path.inspect}: topic[1] must be a string"
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
+  test "rejects inconsistent topic capitalization across production drafts before mutation" do
+    root = Sitepress::Node.new
+    first_path = "app/content/pages/writing/drafts/ruby.markerb"
+    second_path = "app/content/pages/writing/drafts/lowercase-ruby.markerb"
+    add_resource(root, first_path, "topic" => ["Ruby"])
+    add_resource(root, second_path, "topic" => ["ruby"])
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) do
+      process(root, environment: "production")
+    end
+
+    assert_includes error.message, "inconsistent canonical display capitalization"
+    assert_includes error.message, first_path
+    assert_includes error.message, second_path
+    assert_equal tree_before, tree_snapshot(root)
+  end
+
+  test "rejects topic labels with colliding slugs across production drafts before mutation" do
+    root = Sitepress::Node.new
+    first_path = "app/content/pages/writing/drafts/c.markerb"
+    second_path = "app/content/pages/writing/drafts/c-plus-plus.markerb"
+    add_resource(root, first_path, "topic" => ["C"])
+    add_resource(root, second_path, "topic" => ["C++"])
+    tree_before = tree_snapshot(root)
+
+    error = assert_raises(Writing::ResourcePipeline::Invalid) do
+      process(root, environment: "production")
+    end
+
+    assert_includes error.message, "slug collision"
+    assert_includes error.message, '"c"'
+    assert_includes error.message, first_path
+    assert_includes error.message, second_path
+    assert_equal tree_before, tree_snapshot(root)
   end
 
   private
@@ -417,9 +504,9 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     ).process(root)
   end
 
-  def add_resource(root, source_path, data = {})
+  def add_resource(root, source_path, data = nil)
     source = Sitepress::Page.new(path: source_path)
-    source.data = data
+    source.data = data || {"topic" => ["Ruby"]}
 
     kind, filename = source_path.match(%r{/writing/(posts|drafts)/([^/]+)\z}).captures
     path = Sitepress::Path.new(filename)
@@ -432,9 +519,9 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     )
   end
 
-  def add_resource_at(root, source_path, request_path)
+  def add_resource_at(root, source_path, request_path, data = {})
     source = Sitepress::Page.new(path: source_path)
-    source.data = {}
+    source.data = data
     path = Sitepress::Path.new(request_path)
     node = path.node_names.reduce(root) { |parent, name| parent.child(name) }
 
@@ -466,5 +553,9 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
         [child.name, tree_snapshot(child)]
       end
     }
+  end
+
+  def topics_for(resource)
+    Writing::Topic.from(resource.data, source_path: resource.source.path.to_s)
   end
 end

@@ -57,6 +57,6 @@ class FeedPublicationTest < ActionDispatch::IntegrationTest
   def write_resource(directory, relative_path, title)
     path = File.join(directory, "pages", "writing", relative_path)
     FileUtils.mkdir_p(File.dirname(path))
-    File.write(path, "---\ntitle: #{title}\n---\nBody\n")
+    File.write(path, "---\ntitle: #{title}\ntopic:\n  - Ruby\n---\nBody\n")
   end
 end

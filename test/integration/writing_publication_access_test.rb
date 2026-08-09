@@ -50,7 +50,7 @@ class WritingPublicationAccessTest < ActionDispatch::IntegrationTest
     assert_select "h1#article-title", text: "Interesting Tailwind vs Semantic CSS Artical"
     assert_select "article.prose h1", text: "Tailwind vs Semantic CSS"
     assert_includes response.body, "two implementations side by side"
-    assert_not_includes response.body, "topic: css, tailwind"
+    assert_not_includes response.body, "topic:\n  - CSS"
   end
 
   private

@@ -50,6 +50,18 @@ class ApplicationLayoutTest < ActiveSupport::TestCase
     assert_nil document.at_css(".article-facts")
   end
 
+  test "article metadata renders topic arrays as dot-separated plain text" do
+    layout = article_layout
+    layout.page_kind(:article)
+    layout.page_title("Topics")
+    layout.page_metadata(topic: ["Ruby", "Phlex"])
+
+    document = Nokogiri::HTML5.parse(layout.call)
+
+    assert_equal "Ruby · Phlex", document.at_css(".article-meta").text
+    assert_equal "Ruby · Phlex", document.at_css(".article-facts dd").text
+  end
+
   private
 
   def article_layout

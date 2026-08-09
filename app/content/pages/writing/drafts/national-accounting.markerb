@@ -1,6 +1,9 @@
 ---
 title: Markdown in Rails with Phlex and Sitepress
-topic: ruby-on-rails, sitepress, phlex
+topic:
+  - Ruby on Rails
+  - Sitepress
+  - Phlex
 emoji: 🦄
 ---
 

@@ -111,7 +111,7 @@ class CollectionComponent < ApplicationComponent
   def formatted_topic(topic)
     return if topic.blank?
 
-    topic.to_s.split(",").map(&:strip).join(" · ")
+    topic.to_a.join(" · ")
   end
 
   def formatted_date(date)
