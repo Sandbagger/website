@@ -50,9 +50,10 @@ publication date. Frontmatter cannot override those facts.
 `Writing::Frontmatter` is an immutable `Literal::Data` value object with these
 properties:
 
-- `title`: constrained nonblank `String`
-- `topics`: constrained non-empty array of unique, nonblank strings
-- `emoji`: nilable constrained nonblank `String`
+- `title`: constrained nonblank `String`, sealed with `Immutable`
+- `topics`: constrained non-empty `_Array(Writing::Topic)`, sealed with
+  `Immutable`
+- `emoji`: nilable constrained nonblank `String`, sealed with `Immutable`
 
 The source key remains `topic`, while the domain reader is pluralized to
 `topics` because it always contains an array.
@@ -61,24 +62,25 @@ The source key remains `topic`, while the domain reader is pluralized to
 `Sitepress::Data::Record` interface, checks the exact key set, extracts values,
 and constructs the typed object. A YAML array is exposed by Sitepress as a
 `Sitepress::Data::Collection`; the factory copies that collection into a plain
-Ruby array before construction. It does not mutate or freeze Sitepress-owned
-values and does not silently trim, split, downcase, or otherwise normalize
-authored values.
+Ruby array and constructs a `Writing::Topic` for every label before
+construction. It does not mutate or freeze Sitepress-owned values and does not
+silently trim, split, downcase, or otherwise normalize authored values.
 
-Because `Literal::Data` freezes its receiver but not nested values, the factory
-copies and freezes `title`, every topic string, the topics array, and `emoji`
-before construction. Frontmatter equality and hashes therefore cannot change
-after ingestion even if Sitepress retains mutable source data.
+Literal property seals own the final representation on every construction
+path. `Immutable` defensively copies and freezes `title`, `emoji`, and the
+topics array; each `Writing::Topic` already owns its sealed label. This applies
+equally to `.new` and `.from_props`, so frontmatter equality and hashes cannot
+change after ingestion even if Sitepress retains mutable source data.
 
-Missing keys, unknown keys, and Literal type failures are translated into one
-frontmatter-specific error containing the source path and failing property.
-The original `Literal::TypeError` remains available as the exception cause
-when applicable.
+Missing keys, unknown keys, topic failures, and Literal type failures are
+translated into one frontmatter-specific error containing the source path and
+failing property. The original `Writing::Topic::Invalid` or
+`Literal::TypeError` remains available as the exception cause when applicable.
 
 ### `Writing::Article`
 
 `Writing::Article` is a frozen `Literal::Object` domain projection with these
-typed properties:
+typed, privately readable properties:
 
 - `path`: `Writing::Path`
 - `frontmatter`: `Writing::Frontmatter`
@@ -97,21 +99,26 @@ The facade exposes this intentional API:
 - `publication_date`
 - `draft?`
 - `post?`
+- `slug`
+- `source_path`
 - `request_path`
 - `url`
 
-`request_path` and `url` both come from `Writing::Path#request_path`, so their
-values are stable before and after Sitepress canonical remapping. The remaining
-methods delegate explicitly to `frontmatter` or `path`. There is no
-`method_missing`, `SimpleDelegator`, retained Sitepress resource, or public
-`data` escape hatch.
+`slug`, `source_path`, `request_path`, and `url` come from `Writing::Path`;
+`request_path` and `url` both use `Writing::Path#request_path`, so their values
+are stable before and after Sitepress canonical remapping. The complete Path
+object remains private. The remaining methods delegate explicitly to
+`frontmatter` or `path`. There is no `method_missing`, `SimpleDelegator`,
+retained Sitepress resource, or public `data` escape hatch.
 
-The article object freezes itself after initialization, and `Writing::Path`
-also freezes after successful parsing. `Writing::Article` deliberately keeps
-normal object-identity equality and hashing rather than pretending that a
-domain projection containing collaborator objects is a structural value.
-Structural equality and stable hashes are guaranteed only for the deeply
-immutable `Writing::Frontmatter` value object.
+The article object freezes itself after initialization. `Writing::Path` owns
+frozen copies of its source path and slug and freezes after successful parsing,
+making the complete projection immutable rather than merely hiding mutable
+state. `Writing::Article` deliberately keeps normal object-identity equality
+and hashing rather than pretending that a domain projection containing
+collaborator objects is a structural value. Structural equality and stable
+hashes are guaranteed only for the immutable `Writing::Frontmatter` and
+`Writing::Topic` value objects.
 
 ## Pipeline data flow
 
@@ -128,9 +135,9 @@ immutable `Writing::Frontmatter` value object.
 
 `ResourcePipeline::Entry` retains the mutable `Sitepress::Resource` required for
 tree operations alongside the typed `article` and pipeline-only `target`.
-Separate `path` storage becomes unnecessary because it is available through
-the article. The existing `Target` value object remains responsible for
-canonical Sitepress node lookup and materialization.
+Separate `path` and `topics` storage becomes unnecessary because both are
+available through the article's facade. The existing `Target` value object
+remains responsible for canonical Sitepress node lookup and materialization.
 
 The old legacy-key validation is removed because the closed frontmatter schema
 rejects those keys along with every other unknown key.
@@ -143,10 +150,11 @@ are exposed by `Article#publication_date`, derived from `Writing::Path`.
 ### Catalogue and publication policy
 
 `Writing::Catalogue` converts candidate Sitepress resources with
-`Writing::Article.from`. Non-writing resources remain outside the catalogue.
-Its private `Entry` tuple becomes unnecessary and is removed. `#published`
-returns `Writing::Article` instances newest first and applies exclusions using
-`article.request_path`.
+`Writing::Article.from`. A path failure identifies a non-writing resource and
+leaves it outside the catalogue; frontmatter failures for recognized writing
+resources remain fatal. Its private `Entry` tuple becomes unnecessary and is
+removed. `#published` returns `Writing::Article` instances newest first and
+applies exclusions using `article.request_path`.
 
 `Writing::PublicationPolicy` receives articles rather than paths. It determines
 draft, post, due, and accessibility state through the article's explicit API.
@@ -194,13 +202,12 @@ Sitepress ingestion accept YAML arrays exclusively.
 The writing template is updated to match the canonical array structure used by
 the command.
 
-## Existing content migration
+## Existing content compatibility
 
-Every current draft and post moves from comma-separated `topic` strings to YAML
-arrays. The draft containing `date` and `topics` drops `date`, renames `topics`
-to `topic`, and uses an array. Optional `emoji` values remain unchanged.
-
-This migration lands atomically with the validator so the application remains
+The current drafts and posts already use the canonical `topic` array introduced
+by the draft-scaffolding work. Before enabling the validator, the implementation
+checks every existing writing resource against the closed schema and corrects
+any remaining violations in the same commit. The application must remain
 bootable at every completed commit.
 
 ## Error behavior
@@ -221,8 +228,9 @@ failed boot cannot leave a partially remapped in-memory resource tree.
 When a record contains multiple problems, validation reports the first problem
 in this deterministic order: sorted unknown keys; missing `title`; missing
 `topic`; invalid `title`; invalid topic container; invalid topic members by
-index; duplicate topics; invalid `emoji`. This keeps errors predictable without
-adding an aggregate-error protocol.
+index; duplicate topics; invalid `emoji`. Topic members additionally retain the
+existing nonblank, surrounding-whitespace, and non-empty-slug requirements.
+This keeps errors predictable without adding an aggregate-error protocol.
 
 ## Testing
 
@@ -232,6 +240,7 @@ Cover:
 
 - valid construction and readers;
 - value equality, matching hashes, and frozen instances;
+- defensive ownership through both `.new` and `.from_props`;
 - omitted and present emoji;
 - missing title or topic;
 - blank or whitespace-padded strings;
@@ -245,8 +254,9 @@ Cover:
 
 Cover explicit readers, draft/post predicates, publication dates, stable request
 paths and URLs across resource remapping, identity equality, and a frozen
-article wrapper. Confirm that the Sitepress resource is not retained and that
-invalid paths and frontmatter cannot produce an article.
+article wrapper. Add `Writing::Path` ownership tests for its source and slug
+strings. Confirm that the Sitepress resource is not retained and that invalid
+paths and frontmatter cannot produce an article.
 
 ### Pipeline tests
 
@@ -270,9 +280,9 @@ render with the existing separator and the feed's public output is unchanged.
 
 ### Scaffold tests
 
-Extend the shell tests for the topic prompt, canonical YAML-array output, blank
-tokens, duplicates, failed reads, atomic cleanup, collisions, and preserved file
-permissions.
+Extend the shell tests for the topic prompt, trimmed titles, canonical YAML-array
+output, YAML-significant topic strings, blank tokens, duplicates, failed reads,
+atomic cleanup, collisions, and preserved file permissions.
 
 ## Verification
 
@@ -282,7 +292,7 @@ Run focused tests during each red-green-refactor cycle, followed by:
 bin/rails test
 bundle exec standardrb
 bin/rails runner 'puts "booted"'
-rg -n 'resource\.data|page\.data' app/controllers app/views app/models/writing lib/writing
+grep -RInE 'resource\.data|page\.data' app/controllers app/views app/models/writing lib/writing
 ```
 
 The final search may still find non-writing page metadata access. It must not
