@@ -106,6 +106,15 @@ class Writing::FrontmatterTest < ActiveSupport::TestCase
     assert_raises(Literal::TypeError) do
       Writing::Frontmatter.from_props(title: "Example", topics: [], emoji: nil)
     end
+    assert_raises(Literal::TypeError) do
+      Writing::Frontmatter.new(title: 1, topics: [topic])
+    end
+    assert_raises(Literal::TypeError) do
+      Writing::Frontmatter.from_props(title: "Example", topics: nil, emoji: nil)
+    end
+    assert_raises(Literal::TypeError) do
+      Writing::Frontmatter.from_props(title: "Example", topics: ["Ruby"], emoji: nil)
+    end
   end
 end
 ```
@@ -155,13 +164,16 @@ module Writing
     NONBLANK_STRING = _Intersection(
       String,
       _Predicate("nonblank String without surrounding whitespace") do |value|
-        !value.empty? && value == value.strip
+        value.is_a?(String) && !value.empty? && value == value.strip
       end
     )
     TOPICS = _Intersection(
       _Array(Writing::Topic),
       _Predicate("non-empty topics with case-insensitively unique labels") do |topics|
-        topics.any? && topics.map { _1.label.downcase }.uniq.length == topics.length
+        topics.is_a?(Array) &&
+          topics.any? &&
+          topics.all? { _1.is_a?(Writing::Topic) } &&
+          topics.map { _1.label.downcase }.uniq.length == topics.length
       end
     )
 
