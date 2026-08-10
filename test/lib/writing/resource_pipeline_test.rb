@@ -187,18 +187,21 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     end
   end
 
-  test "maps a dated post to its canonical request path and derives publish_at" do
+  test "maps a dated post without mutating frontmatter data" do
     root = Sitepress::Node.new
     resource = add_resource(
       root,
       "app/content/pages/writing/posts/2024-03-10-example.html.markerb"
     )
 
+    data_before = snapshot_data(resource.data)
+
     process(root)
 
     assert_same resource, root.get("/writing/example")
     assert_equal "/writing/example", resource.request_path
-    assert_equal Date.new(2024, 3, 10), resource.data["publish_at"]
+    assert_equal data_before, snapshot_data(resource.data)
+    assert_equal Date.new(2024, 3, 10), Writing::Article.from(resource).publication_date
     assert_nil root.get("/writing/posts/2024-03-10-example")
   end
 
@@ -248,7 +251,7 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     post_path = "app/content/pages/writing/posts/2024-03-10-example.markerb"
     draft_path = "app/content/pages/writing/drafts/draft-example.markerb"
     existing = add_resource_at(root, existing_path, "/writing/topics/ruby")
-    post = add_resource(root, post_path)
+    add_resource(root, post_path)
     draft = add_resource(root, draft_path)
     tree_before = tree_snapshot(root)
 
@@ -258,7 +261,6 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_includes error.message, '"ruby"'
     assert_includes error.message, existing_path
     assert_includes error.message, post_path
-    assert_nil post.data["publish_at"]
     assert_same draft, root.get("/writing/drafts/draft-example")
     assert_equal tree_before, tree_snapshot(root)
     assert_same existing, root.get("/writing/topics/ruby")
@@ -326,7 +328,7 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
 
   test "rejects a missing topic template before mutating the tree" do
     root = Sitepress::Node.new
-    post = add_resource(root, "app/content/pages/writing/posts/2024-03-10-example.markerb")
+    add_resource(root, "app/content/pages/writing/posts/2024-03-10-example.markerb")
     tree_before = tree_snapshot(root)
     missing_template = Rails.root.join("tmp/missing-topic.markerb")
 
@@ -335,13 +337,12 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     end
 
     assert_includes error.message, missing_template.to_s
-    assert_nil post.data["publish_at"]
     assert_equal tree_before, tree_snapshot(root)
   end
 
   test "rejects a non-file topic template before mutating the tree" do
     root = Sitepress::Node.new
-    post = add_resource(root, "app/content/pages/writing/posts/2024-03-10-example.markerb")
+    add_resource(root, "app/content/pages/writing/posts/2024-03-10-example.markerb")
     tree_before = tree_snapshot(root)
     template_directory = Rails.root.join("app/content/templates")
 
@@ -350,7 +351,6 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     end
 
     assert_includes error.message, template_directory.to_s
-    assert_nil post.data["publish_at"]
     assert_equal tree_before, tree_snapshot(root)
   end
 
@@ -371,7 +371,6 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_includes error.message, "/writing/topics/phlex"
     assert_includes error.message, existing_path
     assert_includes error.message, post.source.path.to_s
-    assert_nil post.data["publish_at"]
     assert_nil root.get("/writing/topics/ruby")
     assert_equal tree_before, tree_snapshot(root)
   end
@@ -464,11 +463,14 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
       "app/content/pages/writing/posts/2099-03-10-scheduled.markerb"
     )
 
+    data_before = snapshot_data(scheduled.data)
+
     process(root, environment: "production")
 
     assert_nil root.get("/writing/drafts/unfinished")
     assert_same scheduled, root.get("/writing/scheduled")
-    assert_equal Date.new(2099, 3, 10), scheduled.data["publish_at"]
+    assert_equal data_before, snapshot_data(scheduled.data)
+    assert_equal Date.new(2099, 3, 10), Writing::Article.from(scheduled).publication_date
   end
 
   test "rejects flat writing resources before mutating the tree in every environment" do
@@ -656,7 +658,6 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
 
     assert_includes error.message, existing_path
     assert_includes error.message, post_path
-    assert_nil post.data["publish_at"]
     assert_same existing, root.get("/writing/an.example")
     assert_same post, root.get("/writing/posts/2024-03-10-an.example")
     assert_equal children_before, root.dig("writing").children.map(&:name).sort
@@ -783,7 +784,6 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_instance_of nested_cause, error.cause.cause if nested_cause
     assert_equal tree_before, tree_snapshot(root)
     assert_same post, root.get("/writing/posts/2000-01-01-preflight-post")
-    assert_nil post.data["publish_at"]
     assert_same draft, root.get("/writing/drafts/preflight-draft")
     assert_nil root.get("/writing/preflight-post")
     assert_nil root.get("/writing/topics/ruby")

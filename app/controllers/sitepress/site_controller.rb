@@ -14,8 +14,8 @@ module Sitepress
     protected
 
     def render_resource(resource)
-      path = writing_path(resource)
-      if path&.post? && !publication_policy.accessible?(path)
+      article = article_from(resource)
+      if article && !publication_policy.accessible?(article)
         raise Sitepress::ResourceNotFound, "No such page: #{resource.request_path}"
       end
 
@@ -24,18 +24,18 @@ module Sitepress
 
     # default if no layout is specified in frontmatter
     def default_layout(page)
-      article = writing_post?(page)
+      article = article_from(page)
 
       ApplicationLayout.new.tap do |layout|
         layout.page_kind(article ? :article : :default)
-        layout.page_title(page_title_for(page))
+        layout.page_title(article ? article.title : page_title_for(page))
         if article
           layout.page_metadata(
-            topics: Writing::Topic.from(page.data, source_path: page.source.path),
-            publish_at: page.data["publish_at"]
+            topics: article.topics,
+            publication_date: article.publication_date
           )
         end
-        attach_cover(layout, page)
+        attach_cover(layout, article || page)
         layout.markdown(render_resource_inline(page))
         if article
           layout.partial(
@@ -107,16 +107,15 @@ module Sitepress
     # parses frontmatter for layout
     def layout_component(resource)
       Rails.logger.info resource
-      Rails.logger.info resource.data
 
-      method_name = resource.data.fetch("layout", "default") + "_layout"
+      method_name = if article_from(resource)
+        "default_layout"
+      else
+        resource.data.fetch("layout", "default") + "_layout"
+      end
       Rails.logger.info method_name
       layout_method = method(method_name)
       layout_method.call(resource)
-    end
-
-    def writing_post?(page)
-      writing_path(page).present?
     end
 
     def published(topic: nil)
@@ -137,8 +136,8 @@ module Sitepress
       )
     end
 
-    def writing_path(resource)
-      Writing::Path.new(resource.source.path)
+    def article_from(resource)
+      Writing::Article.from(resource)
     rescue Writing::Path::Invalid
       nil
     end

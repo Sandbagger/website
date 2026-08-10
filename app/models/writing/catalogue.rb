@@ -2,12 +2,6 @@
 
 module Writing
   class Catalogue
-    class Entry < Literal::Data
-      prop :resource, Sitepress::Resource
-      prop :path, Path
-      prop :topics, _Array(Writing::Topic), &Immutable
-    end
-
     def initialize(resources:, policy:)
       @resources = resources
       @policy = policy
@@ -16,13 +10,12 @@ module Writing
     def published(exclude: nil, topic: nil)
       validate_topic!(topic)
 
-      entries
-        .select { |entry| policy.published?(entry.path) }
-        .then { |published_entries| topic.nil? ? published_entries : published_entries.select { |entry| entry.topics.include?(topic) } }
-        .reject { |entry| entry.resource.request_path == exclude }
-        .sort_by { |entry| entry.path.publication_date }
+      articles
+        .select { |article| policy.published?(article) }
+        .then { |published_articles| topic.nil? ? published_articles : published_articles.select { |article| article.topics.include?(topic) } }
+        .reject { |article| article.request_path == exclude }
+        .sort_by(&:publication_date)
         .reverse
-        .map(&:resource)
     end
 
     private
@@ -35,11 +28,9 @@ module Writing
       fail ArgumentError, "topic must be a Writing::Topic or nil"
     end
 
-    def entries
+    def articles
       resources.filter_map do |resource|
-        path = Path.new(resource.source.path)
-        topics = Writing::Topic.from(resource.data, source_path: resource.source.path)
-        Entry.new(resource:, path:, topics:)
+        Writing::Article.from(resource)
       rescue Path::Invalid
         nil
       end

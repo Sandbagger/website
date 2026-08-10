@@ -9,8 +9,8 @@ xml.rss :version => "2.0", "xmlns:atom" => "http://www.w3.org/2005/Atom" do
 
     posts.each do |post|
       xml.item do
-        xml.title post.data["title"]
-        xml.pubDate post.data["publish_at"].strftime("%a, %d %b %Y %H:%M:%S %z")
+        xml.title post.title
+        xml.pubDate post.publication_date.strftime("%a, %d %b %Y %H:%M:%S %z")
         xml.link root_url + post.url
         xml.guid root_url + post.url, isPermaLink: "true"
       end

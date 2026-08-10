@@ -74,8 +74,8 @@ class ApplicationLayout < ApplicationView
     @page_kind = kind.to_sym
   end
 
-  def page_metadata(topics: [], publish_at: nil)
-    @page_metadata = {topics:, publish_at:}.compact_blank
+  def page_metadata(topics: [], publication_date: nil)
+    @page_metadata = {topics:, publication_date:}.compact_blank
   end
   # standard:enable Style/TrivialAccessors
 
@@ -135,7 +135,7 @@ class ApplicationLayout < ApplicationView
 
   def article_metadata
     topics = @page_metadata[:topics] || []
-    date = formatted_publish_date
+    date = formatted_publication_date
     return if topics.empty? && date.blank?
 
     p(class: "article-meta") do
@@ -155,7 +155,7 @@ class ApplicationLayout < ApplicationView
       dl do
         topics = @page_metadata[:topics] || []
         fact("Topics") { render TopicLinksComponent.new(topics) } if topics.any?
-        fact("Published", formatted_publish_date)
+        fact("Published", formatted_publication_date)
       end
     end
   end
@@ -167,8 +167,8 @@ class ApplicationLayout < ApplicationView
     dd { block_given? ? yield : value }
   end
 
-  def formatted_publish_date
-    @page_metadata[:publish_at]&.strftime("%-d %B %Y")
+  def formatted_publication_date
+    @page_metadata[:publication_date]&.strftime("%-d %B %Y")
   end
 
   def render_partials

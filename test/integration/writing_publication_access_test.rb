@@ -66,10 +66,7 @@ class WritingPublicationAccessTest < ActionDispatch::IntegrationTest
     with_temporary_resource(
       "writing/posts/2026-08-01-midnight.markerb",
       "/writing/midnight"
-    ) do |resource|
-      resource.data["publish_at"] = Date.new(2026, 8, 1)
-      yield resource
-    end
+    ) { |resource| yield resource }
   end
 
   def with_temporary_resource(source_name, request_path)

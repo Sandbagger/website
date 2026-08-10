@@ -185,7 +185,6 @@ module Writing
           prepare_draft_preview(entry.resource)
         end
       else
-        entry.resource.data["publish_at"] = entry.article.publication_date
         move_to_canonical_node(root, entry)
       end
     end

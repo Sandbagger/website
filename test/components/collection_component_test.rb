@@ -1,8 +1,8 @@
+# frozen_string_literal: true
+
 require "test_helper"
 
 class CollectionComponentTest < ActiveSupport::TestCase
-  Resource = Data.define(:request_path, :data)
-
   test "home renders a quiet empty state" do
     document = render_component([], context: :home)
 
@@ -11,11 +11,11 @@ class CollectionComponentTest < ActiveSupport::TestCase
     assert_nil document.at_css(".writing-feature")
   end
 
-  test "home renders only the compact resources available" do
+  test "home renders only the compact articles available" do
     document = render_component(
       [
-        resource("/writing/does-not-have-a-cover", "Feature"),
-        resource("/writing/another-note", "Another")
+        article("does-not-have-a-cover", "Feature"),
+        article("another-note", "Another")
       ],
       context: :home
     )
@@ -26,7 +26,7 @@ class CollectionComponentTest < ActiveSupport::TestCase
 
   test "feature becomes text led when its cover is absent" do
     document = render_component(
-      [resource("/writing/does-not-have-a-cover", "Text only")],
+      [article("does-not-have-a-cover", "Text only")],
       context: :home
     )
 
@@ -35,12 +35,13 @@ class CollectionComponentTest < ActiveSupport::TestCase
   end
 
   test "feature renders a dimensioned canonical WebP cover" do
-    featured_resource = resource("/writing/pettis-good-tariffs-vs-bad", "Michael Pettis")
-    cover = Writing::Cover.find(featured_resource)
-    document = render_component(
-      [featured_resource],
-      context: :home
+    featured_article = article(
+      "pettis-good-tariffs-vs-bad",
+      "Michael Pettis",
+      publication_date: Date.new(2025, 10, 12)
     )
+    cover = Writing::Cover.find(featured_article)
+    document = render_component([featured_article], context: :home)
 
     link = document.at_css(".writing-feature__cover")
     image = link.at_css("img")
@@ -56,43 +57,31 @@ class CollectionComponentTest < ActiveSupport::TestCase
 
   test "home with only a feature omits an empty article list" do
     document = render_component(
-      [resource("/writing/one-note", "One note")],
+      [article("one-note", "One note")],
       context: :home
     )
 
     assert_nil document.at_css("ol.article-list")
   end
 
-  test "missing topic metadata raises with the resource diagnostic path" do
-    error = assert_raises(Writing::Topic::Invalid) do
-      render_component(
-        [Resource.new("/writing/title-only", Sitepress::Data.manage("title" => "Title only"))],
-        context: :archive
-      )
+  test "rejects non-article collection members" do
+    error = assert_raises(ArgumentError) do
+      CollectionComponent.new([Object.new], context: :archive)
     end
 
-    assert_includes error.message, %("/writing/title-only")
-    assert_includes error.message, "missing topic metadata"
+    assert_equal "collection must contain Writing::Article instances", error.message
   end
 
-  test "blank titles fall back to request paths in titles and aria labels" do
+  test "article topics render linked metadata before the publication date" do
     document = render_component(
       [
-        resource("/writing/nil-title", nil),
-        resource("/writing/blank-title", "   ")
+        article(
+          "topic-array",
+          "Topics",
+          topics: ["Ruby", "Phlex"],
+          publication_date: Date.new(2025, 10, 12)
+        )
       ],
-      context: :archive
-    )
-
-    assert_equal ["/writing/nil-title", "/writing/blank-title"],
-      document.css(".article-row h3 a").map(&:text)
-    assert_equal ["Read /writing/nil-title", "Read /writing/blank-title"],
-      document.css(".article-row > a").map { |link| link["aria-label"] }
-  end
-
-  test "topic arrays render linked metadata before the date" do
-    document = render_component(
-      [resource("/writing/topic-array", "Topics", topics: ["Ruby", "Phlex"], publish_at: Date.new(2025, 10, 12))],
       context: :archive
     )
 
@@ -104,18 +93,41 @@ class CollectionComponentTest < ActiveSupport::TestCase
     assert_equal "Ruby · Phlex · 12 October 2025", metadata.text
   end
 
+  test "rows use article titles and canonical request paths" do
+    document = render_component(
+      [article("canonical", "Canonical title")],
+      context: :archive
+    )
+
+    title_link = document.at_css(".article-row h3 a")
+    read_link = document.at_css(".article-row > a")
+
+    assert_equal "Canonical title", title_link.text
+    assert_equal "/writing/canonical", title_link["href"]
+    assert_equal "/writing/canonical", read_link["href"]
+    assert_equal "Read Canonical title", read_link["aria-label"]
+  end
+
   private
 
-  def render_component(resources, context:)
-    html = CollectionComponent.new(resources, context:).call
+  def render_component(articles, context:)
+    html = CollectionComponent.new(articles, context:).call
     Nokogiri::HTML5.fragment(html)
   end
 
-  def resource(path, title, topics: ["Ruby"], publish_at: nil)
-    data = {"title" => title}
-    data["topic"] = topics
-    data["publish_at"] = publish_at if publish_at
+  def article(slug, title, topics: ["Ruby"], publication_date: Date.new(2024, 3, 10))
+    source = Sitepress::Page.new(
+      path: "writing/posts/#{publication_date.iso8601}-#{slug}.markerb"
+    )
+    source.data = {"title" => title, "topic" => topics}
+    root = Sitepress::Node.new
+    node = root.child("remapped").child(slug)
+    resource = node.resources.add Sitepress::Resource.new(
+      source: source,
+      node: node,
+      format: :html
+    )
 
-    Resource.new(path, Sitepress::Data.manage(data))
+    Writing::Article.from(resource)
   end
 end

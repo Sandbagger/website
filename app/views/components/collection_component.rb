@@ -9,6 +9,10 @@ class CollectionComponent < ApplicationComponent
 
   def initialize(collection, context: :archive)
     @collection = collection || []
+    unless @collection.all? { |article| article.is_a?(Writing::Article) }
+      fail ArgumentError, "collection must contain Writing::Article instances"
+    end
+
     @context = context.to_sym
   end
 
@@ -59,15 +63,15 @@ class CollectionComponent < ApplicationComponent
     end
   end
 
-  def feature(resource)
-    cover = post_cover(resource)
+  def feature(article)
+    cover = post_cover(article)
 
     article(class: ["writing-feature", cover ? nil : "writing-feature--text-only"]) do
       if cover
         a(
-          href: resource.request_path,
+          href: article.request_path,
           class: "writing-feature__cover",
-          aria: {label: "Read #{resource_title(resource)}"}
+          aria: {label: "Read #{article.title}"}
         ) do
           img(
             src: cover.src,
@@ -80,20 +84,20 @@ class CollectionComponent < ApplicationComponent
         end
       end
 
-      resource_metadata(resource)
-      h3 { a(href: resource.request_path) { resource_title(resource) } }
+      article_metadata(article)
+      h3 { a(href: article.request_path) { article.title } }
     end
   end
 
-  def rows(resources)
-    return if resources.empty?
+  def rows(articles)
+    return if articles.empty?
 
     ol(class: "article-list", role: "list") do
-      resources.each do |resource|
+      articles.each do |article|
         li(class: "article-row") do
-          resource_metadata(resource)
-          h3 { a(href: resource.request_path) { resource_title(resource) } }
-          a(href: resource.request_path, aria: {label: "Read #{resource_title(resource)}"}) do
+          article_metadata(article)
+          h3 { a(href: article.request_path) { article.title } }
+          a(href: article.request_path, aria: {label: "Read #{article.title}"}) do
             "Read note →"
           end
         end
@@ -101,9 +105,9 @@ class CollectionComponent < ApplicationComponent
     end
   end
 
-  def resource_metadata(resource)
-    topics = resource_topics(resource)
-    date = formatted_date(resource.data["publish_at"])
+  def article_metadata(article)
+    topics = article.topics
+    date = formatted_date(article.publication_date)
 
     return if topics.empty? && date.blank?
 
@@ -114,22 +118,8 @@ class CollectionComponent < ApplicationComponent
     end
   end
 
-  def resource_topics(resource)
-    Writing::Topic.from(resource.data, source_path: resource_source_path(resource))
-  end
-
-  def resource_source_path(resource)
-    source = resource.source if resource.respond_to?(:source)
-
-    source&.path || resource.request_path
-  end
-
   def formatted_date(date)
     date&.strftime("%-d %B %Y")
-  end
-
-  def resource_title(resource)
-    resource.data["title"].presence || resource.request_path
   end
 
   def section_classes

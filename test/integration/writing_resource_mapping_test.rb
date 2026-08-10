@@ -24,6 +24,13 @@ class WritingResourceMappingTest < ActiveSupport::TestCase
         assert resource, "Expected #{request_path} to resolve"
         assert_equal request_path, resource.request_path
         assert resource.source.path.to_s.end_with?("/writing/posts/#{filename}")
+        assert_equal %w[title topic], resource.data.to_h.keys.sort
+        assert_equal "Example", resource.data["title"]
+        assert_equal ["Ruby"], resource.data["topic"].to_a
+
+        article = Writing::Article.from(resource)
+        assert_equal request_path, article.request_path
+        assert_equal Date.iso8601(filename.first(10)), article.publication_date
       end
 
       assert_nil Sitepress.site.get(

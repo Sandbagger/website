@@ -42,7 +42,7 @@ class ApplicationLayoutTest < ActiveSupport::TestCase
     end.new
     layout.page_kind(:article)
     layout.page_title("Blank metadata")
-    layout.page_metadata(topics: [], publish_at: "")
+    layout.page_metadata(topics: [], publication_date: "")
 
     document = Nokogiri::HTML5.parse(layout.call)
 
@@ -66,6 +66,18 @@ class ApplicationLayoutTest < ActiveSupport::TestCase
       document.css(".article-meta a").map { |link| link["href"] }
     assert_equal ["/writing/topics/ruby", "/writing/topics/phlex"],
       document.css(".article-facts dd a").map { |link| link["href"] }
+  end
+
+  test "article metadata formats its publication date" do
+    layout = article_layout
+    layout.page_kind(:article)
+    layout.page_title("Dated")
+    layout.page_metadata(publication_date: Date.new(2025, 10, 12))
+
+    document = Nokogiri::HTML5.parse(layout.call)
+
+    assert_equal "12 October 2025", document.at_css(".article-meta").text
+    assert_equal "12 October 2025", document.at_css(".article-facts dd").text
   end
 
   private

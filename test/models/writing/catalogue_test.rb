@@ -20,224 +20,223 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
     end
   end
 
-  test "entry is an immutable value object" do
-    sitepress_resource = resource(
-      "/writing/example",
-      "writing/posts/2024-03-10-example.markerb"
-    )
-    path = Writing::Path.new(sitepress_resource.source.path)
-    topics = [Writing::Topic.new(label: "Ruby")]
-
-    entry = Writing::Catalogue::Entry.new(resource: sitepress_resource, path: path, topics: topics)
-    equal_entry = Writing::Catalogue::Entry.new(resource: sitepress_resource, path: path, topics: topics)
-
-    assert_same sitepress_resource, entry.resource
-    assert_same path, entry.path
-    assert_equal topics, entry.topics
-    assert_equal entry, equal_entry
-    assert entry.eql?(equal_entry)
-    assert_equal entry.hash, equal_entry.hash
-    assert_predicate entry, :frozen?
-  end
-
-  test "entry rejects an invalid resource" do
-    path = Writing::Path.new("writing/posts/2024-03-10-example.markerb")
-    topics = [Writing::Topic.new(label: "Ruby")]
-
-    assert_raises(Literal::TypeError) do
-      Writing::Catalogue::Entry.new(resource: Object.new, path: path, topics: topics)
-    end
-  end
-
-  test "entry rejects an invalid path" do
-    sitepress_resource = resource(
-      "/writing/example",
-      "writing/posts/2024-03-10-example.markerb"
-    )
-
-    assert_raises(Literal::TypeError) do
-      Writing::Catalogue::Entry.new(resource: sitepress_resource, path: Object.new, topics: [])
-    end
-  end
-
-  test "entry rejects invalid topics" do
-    sitepress_resource = resource(
-      "/writing/example",
-      "writing/posts/2024-03-10-example.markerb"
-    )
-    path = Writing::Path.new(sitepress_resource.source.path)
-
-    assert_raises(Literal::TypeError) do
-      Writing::Catalogue::Entry.new(resource: sitepress_resource, path: path, topics: ["Ruby"])
-    end
-  end
-
-  test "entry defensively freezes a copy of its topics" do
-    sitepress_resource = resource(
-      "/writing/example",
-      "writing/posts/2024-03-10-example.markerb"
-    )
-    topics = [Writing::Topic.new(label: "Ruby")]
-    entry = Writing::Catalogue::Entry.new(
-      resource: sitepress_resource,
-      path: Writing::Path.new(sitepress_resource.source.path),
-      topics: topics
-    )
-
-    topics << Writing::Topic.new(label: "Phlex")
-
-    assert_equal ["Ruby"], entry.topics.map(&:label)
-    assert_predicate entry.topics, :frozen?
-  end
-
-  test "from_props applies the immutable topics seal" do
-    sitepress_resource = resource(
-      "/writing/example",
-      "writing/posts/2024-03-10-example.markerb"
-    )
-    topics = [Writing::Topic.new(label: "Ruby")]
-    entry = Writing::Catalogue::Entry.from_props(
-      resource: sitepress_resource,
-      path: Writing::Path.new(sitepress_resource.source.path),
-      topics: topics
-    )
-
-    topics << Writing::Topic.new(label: "Phlex")
-
-    assert_equal ["Ruby"], entry.topics.map(&:label)
-    assert_predicate entry.topics, :frozen?
-    refute_same topics, entry.topics
-  end
-
-  test "published selects due physical posts newest first" do
+  test "published returns due articles newest first from physical paths" do
     published = resource(
       "/remapped-somewhere-else",
       "writing/posts/2024-03-10-published.markerb",
-      "topic" => ["Ruby"], "publish_at" => Date.new(2099, 1, 1)
+      title: "Published"
     )
     newest = resource(
-      "/writing/newest",
-      "writing/posts/2025-10-12-newest.markerb"
+      "/also-remapped",
+      "writing/posts/2025-10-12-newest.markerb",
+      title: "Newest"
     )
     scheduled = resource(
       "/writing/scheduled",
       "writing/posts/2026-08-02-scheduled.markerb",
-      "topic" => ["Ruby"], "publish_at" => Date.new(2020, 1, 1)
+      title: "Scheduled"
     )
     draft = resource(
       "/writing/drafts/draft",
       "writing/drafts/draft.markerb",
-      "topic" => ["Ruby"], "publish_at" => Date.new(2020, 1, 1)
+      title: "Draft"
     )
     unrelated = resource(
-      "/writing/impostor",
+      "/about",
       "about.markerb",
-      "publish_at" => Date.new(2020, 1, 1)
+      title: "About"
     )
 
     result = catalogue([published, scheduled, draft, unrelated, newest]).published
 
-    assert_equal [newest, published], result
+    assert result.all? { |article| article.is_a?(Writing::Article) }
+    assert_equal ["Newest", "Published"], result.map(&:title)
+    assert_equal ["/writing/newest", "/writing/published"], result.map(&:request_path)
+    assert_equal [Date.new(2025, 10, 12), Date.new(2024, 3, 10)], result.map(&:publication_date)
   end
 
-  test "published optionally excludes a canonical request path" do
+  test "published excludes a canonical article request path after resource remapping" do
     current = resource(
-      "/writing/current",
-      "writing/posts/2025-10-12-current.markerb"
+      "/remapped-current",
+      "writing/posts/2025-10-12-current.markerb",
+      title: "Current"
     )
     other = resource(
-      "/writing/other",
-      "writing/posts/2024-03-10-other.markerb"
+      "/remapped-other",
+      "writing/posts/2024-03-10-other.markerb",
+      title: "Other"
     )
 
-    assert_equal [other], catalogue([current, other]).published(exclude: "/writing/current")
+    result = catalogue([current, other]).published(exclude: "/writing/current")
+
+    assert_equal ["/writing/other"], result.map(&:request_path)
   end
 
-  test "published filters due posts by an exact typed topic in publication order" do
+  test "published filters by an exact typed topic in publication order" do
     ruby = Writing::Topic.new(label: "Ruby")
     newest_ruby = resource(
       "/writing/newest-ruby",
       "writing/posts/2025-10-12-newest-ruby.markerb",
-      "topic" => ["Ruby"]
+      title: "Newest Ruby",
+      topics: ["Ruby"]
     )
     phlex = resource(
       "/writing/phlex",
       "writing/posts/2025-10-11-phlex.markerb",
-      "topic" => ["Phlex"]
+      title: "Phlex",
+      topics: ["Phlex"]
     )
     oldest_ruby = resource(
       "/writing/oldest-ruby",
       "writing/posts/2024-03-10-oldest-ruby.markerb",
-      "topic" => ["Ruby", "Phlex"]
+      title: "Oldest Ruby",
+      topics: ["Ruby", "Phlex"]
     )
 
-    assert_equal [newest_ruby, oldest_ruby], catalogue([oldest_ruby, phlex, newest_ruby]).published(topic: ruby)
+    result = catalogue([oldest_ruby, phlex, newest_ruby]).published(topic: ruby)
+
+    assert_equal ["Newest Ruby", "Oldest Ruby"], result.map(&:title)
+    assert_equal [["Ruby"], ["Ruby", "Phlex"]],
+      result.map { |article| article.topics.map(&:label) }
   end
 
-  test "published applies publication filtering before topic filtering" do
+  test "published composes due topic and exclusion filters" do
     ruby = Writing::Topic.new(label: "Ruby")
-    due = resource("/writing/due", "writing/posts/2026-07-31-due.markerb", "topic" => ["Ruby"])
-    future = resource("/writing/future", "writing/posts/2026-08-02-future.markerb", "topic" => ["Ruby"])
-    draft = resource("/writing/drafts/draft", "writing/drafts/draft.markerb", "topic" => ["Ruby"])
+    current = resource(
+      "/remapped-current",
+      "writing/posts/2025-10-12-current.markerb",
+      title: "Current",
+      topics: ["Ruby"]
+    )
+    other = resource(
+      "/remapped-other",
+      "writing/posts/2024-03-10-other.markerb",
+      title: "Other",
+      topics: ["Ruby"]
+    )
+    phlex = resource(
+      "/writing/phlex",
+      "writing/posts/2024-03-09-phlex.markerb",
+      title: "Phlex",
+      topics: ["Phlex"]
+    )
+    future = resource(
+      "/writing/future",
+      "writing/posts/2026-08-02-future.markerb",
+      title: "Future",
+      topics: ["Ruby"]
+    )
+    draft = resource(
+      "/writing/drafts/draft",
+      "writing/drafts/draft.markerb",
+      title: "Draft",
+      topics: ["Ruby"]
+    )
 
-    assert_equal [due], catalogue([future, draft, due]).published(topic: ruby)
+    result = catalogue([future, draft, current, phlex, other]).published(
+      exclude: "/writing/current",
+      topic: ruby
+    )
+
+    assert_equal ["Other"], result.map(&:title)
   end
 
-  test "published composes topic and exclusion filters" do
-    ruby = Writing::Topic.new(label: "Ruby")
-    current = resource("/writing/current", "writing/posts/2025-10-12-current.markerb", "topic" => ["Ruby"])
-    other = resource("/writing/other", "writing/posts/2024-03-10-other.markerb", "topic" => ["Ruby"])
+  test "published with nil topic retains its unfiltered behavior" do
+    ruby = resource(
+      "/writing/ruby",
+      "writing/posts/2025-10-12-ruby.markerb",
+      title: "Ruby",
+      topics: ["Ruby"]
+    )
+    phlex = resource(
+      "/writing/phlex",
+      "writing/posts/2024-03-10-phlex.markerb",
+      title: "Phlex",
+      topics: ["Phlex"]
+    )
 
-    assert_equal [other], catalogue([current, other]).published(exclude: "/writing/current", topic: ruby)
-  end
+    without_topic = catalogue([ruby, phlex]).published
+    with_nil_topic = catalogue([ruby, phlex]).published(topic: nil)
 
-  test "published with a nil topic retains its unfiltered behavior" do
-    ruby = resource("/writing/ruby", "writing/posts/2025-10-12-ruby.markerb", "topic" => ["Ruby"])
-    phlex = resource("/writing/phlex", "writing/posts/2024-03-10-phlex.markerb", "topic" => ["Phlex"])
-
-    assert_equal catalogue([ruby, phlex]).published, catalogue([ruby, phlex]).published(topic: nil)
+    assert_equal without_topic.map(&:request_path), with_nil_topic.map(&:request_path)
   end
 
   test "published rejects false as a topic instead of broadening results" do
-    ruby = resource("/writing/ruby", "writing/posts/2025-10-12-ruby.markerb", "topic" => ["Ruby"])
+    ruby = resource(
+      "/writing/ruby",
+      "writing/posts/2025-10-12-ruby.markerb",
+      title: "Ruby"
+    )
 
     assert_raises(ArgumentError) { catalogue([ruby]).published(topic: false) }
   end
 
   test "published rejects non-topic values instead of broadening results" do
-    ruby = resource("/writing/ruby", "writing/posts/2025-10-12-ruby.markerb", "topic" => ["Ruby"])
+    ruby = resource(
+      "/writing/ruby",
+      "writing/posts/2025-10-12-ruby.markerb",
+      title: "Ruby"
+    )
 
     assert_raises(ArgumentError) { catalogue([ruby]).published(topic: "Ruby") }
   end
 
   test "published does not match a differently capitalized typed topic" do
-    ruby = resource("/writing/ruby", "writing/posts/2025-10-12-ruby.markerb", "topic" => ["Ruby"])
+    ruby = resource(
+      "/writing/ruby",
+      "writing/posts/2025-10-12-ruby.markerb",
+      title: "Ruby",
+      topics: ["Ruby"]
+    )
 
     assert_empty catalogue([ruby]).published(topic: Writing::Topic.new(label: "ruby"))
   end
 
-  test "published ignores generated topic pages and unrelated resources without writing metadata" do
-    post = resource("/writing/post", "writing/posts/2025-10-12-post.markerb", "topic" => ["Ruby"])
+  test "published ignores generated topic pages and unrelated resources" do
+    post = resource(
+      "/writing/post",
+      "writing/posts/2025-10-12-post.markerb",
+      title: "Post"
+    )
     topic_page = topic_page_resource("/writing/topics/ruby")
-    unrelated = resource("/about", "about.markerb", {})
+    unrelated = resource("/about", "about.markerb", title: "About")
 
-    assert_equal [post], catalogue([topic_page, unrelated, post]).published
+    result = catalogue([topic_page, unrelated, post]).published
+
+    assert_equal ["Post"], result.map(&:title)
   end
 
-  test "generated topic source paths are rejected before topic metadata is parsed" do
+  test "generated topic source paths are rejected before metadata is parsed" do
     topic_page = topic_page_resource("/writing/topics/ruby")
+    topic_page.define_singleton_method(:data) { fail "metadata was parsed" }
 
     assert_empty catalogue([topic_page]).published
+  end
+
+  test "recognized writing paths keep invalid frontmatter fatal" do
+    invalid = resource(
+      "/writing/invalid",
+      "writing/posts/2025-10-12-invalid.markerb",
+      title: nil
+    )
+
+    error = assert_raises(Writing::Frontmatter::Invalid) do
+      catalogue([invalid]).published
+    end
+
+    assert_includes error.message, "missing title metadata"
   end
 
   test "published uses one date snapshot for the whole catalogue result" do
     due = resource(
       "/writing/due",
-      "writing/posts/2026-07-31-due.markerb"
+      "writing/posts/2026-07-31-due.markerb",
+      title: "Due"
     )
     midnight = resource(
       "/writing/midnight",
-      "writing/posts/2026-08-01-midnight.markerb"
+      "writing/posts/2026-08-01-midnight.markerb",
+      title: "Midnight"
     )
     clock = AdvancingClock.new(
       Date.new(2026, 7, 31),
@@ -247,7 +246,7 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
 
     result = Writing::Catalogue.new(resources: [due, midnight], policy: policy).published
 
-    assert_equal [due], result
+    assert_equal ["Due"], result.map(&:title)
     assert_equal 1, clock.calls
   end
 
@@ -262,11 +261,13 @@ class Writing::CatalogueTest < ActiveSupport::TestCase
     Writing::Catalogue.new(resources: resources, policy: policy)
   end
 
-  def resource(request_path, source_path, data = {"topic" => ["Ruby"]})
+  def resource(request_path, source_path, title:, topics: ["Ruby"])
     root = Sitepress::Node.new
     path = Sitepress::Path.new(request_path)
     node = path.node_names.reduce(root) { |parent, name| parent.child(name) }
     source = Sitepress::Page.new(path: source_path)
+    data = {"topic" => topics}
+    data["title"] = title if title
     source.data = data
 
     node.resources.add Sitepress::Resource.new(
