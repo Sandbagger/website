@@ -170,8 +170,9 @@ existing Sitepress layout paths.
 dates, paths, URLs, and cover images through article methods and never accesses
 `resource.data`.
 
-`ApplicationLayout#page_metadata` accepts `topics:` as an array and joins it for
-display. It no longer parses comma-separated strings.
+`ApplicationLayout#page_metadata` accepts `topics:` as an array and
+`publication_date:` as the path-derived date. It no longer parses
+comma-separated strings or carries the pipeline-derived `publish_at` name.
 
 The feed receives article objects and renders `title`, `publication_date`, and
 `url` directly. Writing presentation code must not access frontmatter through

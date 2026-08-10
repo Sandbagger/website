@@ -24,6 +24,7 @@
 - Modify `app/models/writing/publication_policy.rb` and `test/models/writing/publication_policy_test.rb`: evaluate the Article interface.
 - Modify `app/controllers/sitepress/site_controller.rb`: use Articles for writing access and layout metadata while preserving generic Sitepress behavior for non-writing pages.
 - Modify `app/views/components/collection_component.rb` and `test/components/collection_component_test.rb`: render Article readers only.
+- Modify `app/views/layouts/application_layout.rb` and `test/views/layouts/application_layout_test.rb`: carry `publication_date` rather than pipeline-derived `publish_at` presentation state.
 - Modify `app/views/feed/index.xml.builder` and feed tests: render Article readers only.
 - Modify `test/integration/writing_publication_access_test.rb` and affected writing integration tests: stop injecting or asserting derived `publish_at` data.
 - Modify `go` and `test/scripts/go_write_test.sh`: trim and validate titles before slugging and serialization.
@@ -95,6 +96,17 @@ class Writing::FrontmatterTest < ActiveSupport::TestCase
     refute_same topics, frontmatter.topics
     refute_same emoji, frontmatter.emoji
   end
+
+  test "new and from_props enforce semantic property constraints" do
+    topic = Writing::Topic.new(label: "Ruby")
+
+    assert_raises(Literal::TypeError) do
+      Writing::Frontmatter.new(title: " ", topics: [topic])
+    end
+    assert_raises(Literal::TypeError) do
+      Writing::Frontmatter.from_props(title: "Example", topics: [], emoji: nil)
+    end
+  end
 end
 ```
 
@@ -140,9 +152,22 @@ module Writing
 
     KEYS = %w[emoji title topic].freeze
 
-    prop :title, String, &Immutable
-    prop :topics, _Array(Writing::Topic), &Immutable
-    prop :emoji, _Nilable(String), default: nil, &Immutable
+    NONBLANK_STRING = _Intersection(
+      String,
+      _Predicate("nonblank String without surrounding whitespace") do |value|
+        !value.empty? && value == value.strip
+      end
+    )
+    TOPICS = _Intersection(
+      _Array(Writing::Topic),
+      _Predicate("non-empty topics with case-insensitively unique labels") do |topics|
+        topics.any? && topics.map { _1.label.downcase }.uniq.length == topics.length
+      end
+    )
+
+    prop :title, NONBLANK_STRING, &Immutable
+    prop :topics, TOPICS, &Immutable
+    prop :emoji, _Nilable(NONBLANK_STRING), default: nil, &Immutable
 
     def self.from(data, source_path:)
       # Validate in the specified order, then construct Topics once and call
@@ -167,8 +192,10 @@ calling `Writing::Topic.from`, translate the stable Topic diagnostic into the
 Frontmatter diagnostic, then validate optional emoji. Rescue only expected
 domain/type failures; do not relabel arbitrary internal exceptions. Literal
 seals apply to `.new` and `.from_props`, but `.from_props` skips initializers and
-`after_initialize`, so place required representation ownership in the property
-declarations and keep public Sitepress ingestion on `.from`.
+`after_initialize`, so place both representation ownership and semantic
+invariants in the property declarations. The factory still performs ordered
+checks first so authored content receives precise domain diagnostics; public
+Sitepress ingestion stays on `.from`.
 
 - [ ] **Step 5: Run focused tests and lint**
 
@@ -227,6 +254,15 @@ Run the command from Step 2. Expected: all Path tests pass.
 - [ ] **Step 5: Write failing Article facade tests**
 
 Create `test/lib/writing/article_test.rb` covering:
+
+```ruby
+require "test_helper"
+require Rails.root.join("lib/writing/frontmatter")
+require Rails.root.join("lib/writing/article")
+```
+
+Require these files in dependency order because the application initializer
+does not load them until Task 3. Then cover:
 
 - `Article.from(resource)` exposes title, Topic values, emoji, publication date,
   draft/post state, slug, physical source path, canonical request path, and URL;
@@ -478,6 +514,8 @@ git commit -m "refactor(writing): Publish typed articles"
 - Modify: `app/controllers/sitepress/site_controller.rb`
 - Modify: `app/views/components/collection_component.rb`
 - Modify: `test/components/collection_component_test.rb`
+- Modify: `app/views/layouts/application_layout.rb`
+- Modify: `test/views/layouts/application_layout_test.rb`
 - Modify: `app/views/feed/index.xml.builder`
 - Modify: `test/integration/feed_controller_test.rb`
 - Modify: `test/integration/feed_publication_test.rb`
@@ -517,7 +555,8 @@ Update feed and writing integration tests to expect unchanged HTML/XML while
 using physical source paths for publication. Remove all test writes to or
 assertions about `resource.data["publish_at"]`. Add assertions that catalogue
 results are Articles and that scheduled access changes when the injected clock
-crosses midnight without rebuilding Sitepress.
+crosses midnight without rebuilding Sitepress. Update the layout unit tests to
+pass `publication_date:` and assert the same rendered date and facts markup.
 
 - [ ] **Step 4: Run the affected tests and verify RED**
 
@@ -531,7 +570,8 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/integration/writing_latest_list_test.rb \
   test/integration/writing_publication_access_test.rb \
   test/integration/writing_topic_archives_test.rb \
-  test/integration/article_layout_test.rb
+  test/integration/article_layout_test.rb \
+  test/views/layouts/application_layout_test.rb
 ```
 
 Expected: failures from resource-returning Catalogue and presentation reads of
@@ -579,6 +619,12 @@ Delete `resource_topics`, `resource_source_path`, and title fallback. In the RSS
 builder, use `post.title`, `post.publication_date`, and `post.url`. The existing
 `Writing::Cover.find`/`PostCoverHelper` request-path interface needs no change.
 
+Rename `ApplicationLayout#page_metadata`'s `publish_at:` keyword and internal
+hash key to `publication_date:`. Rename `formatted_publish_date` accordingly and
+use the new key in both header metadata and the facts rail. The controller must
+pass `article.publication_date`; no writing presentation state should retain the
+old derived-data name.
+
 - [ ] **Step 8: Remove the pipeline's derived data mutation**
 
 Delete:
@@ -613,14 +659,22 @@ grep -RInE 'resource\.data|post\.data' \
   app/views/components/collection_component.rb \
   app/views/feed/index.xml.builder \
   lib/writing/resource_pipeline.rb || true
+grep -RIn 'publish_at' \
+  app/views/layouts/application_layout.rb \
+  app/controllers/sitepress/site_controller.rb \
+  app/views/feed/index.xml.builder \
+  app/views/components/collection_component.rb \
+  lib/writing/resource_pipeline.rb || true
 bundle exec standardrb \
   app/models/writing/catalogue.rb \
   app/models/writing/publication_policy.rb \
   app/controllers/sitepress/site_controller.rb \
   app/views/components/collection_component.rb \
+  app/views/layouts/application_layout.rb \
   lib/writing/resource_pipeline.rb \
   test/models/writing/catalogue_test.rb \
-  test/components/collection_component_test.rb
+  test/components/collection_component_test.rb \
+  test/views/layouts/application_layout_test.rb
 git diff --check
 ```
 
@@ -634,10 +688,12 @@ commit leaves Catalogue returning a type its consumers cannot render:
 git add app/models/writing/catalogue.rb \
   app/controllers/sitepress/site_controller.rb \
   app/views/components/collection_component.rb \
+  app/views/layouts/application_layout.rb \
   app/views/feed/index.xml.builder \
   lib/writing/resource_pipeline.rb \
   test/models/writing/catalogue_test.rb \
   test/components/collection_component_test.rb \
+  test/views/layouts/application_layout_test.rb \
   test/lib/writing/resource_pipeline_test.rb \
   test/controllers/feed_controller_test.rb \
   test/integration/feed_controller_test.rb \
@@ -722,7 +778,8 @@ only that frontmatter and rerun both commands.
 - [ ] **Step 5: Lint and commit**
 
 ```bash
-bash -n go test/scripts/go_write_test.sh
+bash -n go
+bash -n test/scripts/go_write_test.sh
 git diff --check
 git add go test/scripts/go_write_test.sh
 git add app/content/pages/writing/drafts app/content/pages/writing/posts
