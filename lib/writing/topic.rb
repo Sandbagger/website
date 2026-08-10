@@ -4,7 +4,17 @@ module Writing
   class Topic < Literal::Data
     class Invalid < StandardError; end
 
-    prop :label, String, &Immutable
+    CANONICAL_LABEL = _Intersection(
+      String,
+      _Predicate("nonblank String without surrounding whitespace that produces a slug") do |value|
+        value.is_a?(String) &&
+          value.present? &&
+          value == value.strip &&
+          value.parameterize.present?
+      end
+    )
+
+    prop :label, CANONICAL_LABEL, &Immutable
 
     def self.from(data, source_path:)
       labels = data.fetch("topic") { fail_invalid_metadata!(source_path, "missing topic metadata") }
@@ -15,38 +25,31 @@ module Writing
       labels = labels.to_a
       fail_invalid_metadata!(source_path, "topic must not be empty") if labels.empty?
 
-      validate_members!(labels, source_path)
+      topics = labels.each_with_index.map do |label, index|
+        validate_member!(label, index, source_path)
+        new(label:)
+      end
       validate_duplicates!(labels, source_path)
 
-      labels.each_with_index.map do |label, index|
-        new(label: label)
-      rescue Invalid => error
-        reason = error.message.delete_prefix("topic label ")
-        fail_invalid_metadata!(source_path, "topic[#{index}] #{reason}")
-      end.freeze
+      topics.freeze
     end
 
     def slug = label.parameterize
 
     def request_path = "/writing/topics/#{slug}"
 
-    private
-
-    def after_initialize
-      fail Invalid, "topic label must not be blank" if label.blank?
-      fail Invalid, "topic label must not have surrounding whitespace" if label != label.strip
-      fail Invalid, "topic label must produce a slug" if slug.empty?
-    end
-
     class << self
       private
 
-      def validate_members!(labels, source_path)
-        labels.each_with_index do |label, index|
-          next if label.is_a?(String)
-
-          fail_invalid_metadata!(source_path, "topic[#{index}] must be a string")
+      def validate_member!(label, index, source_path)
+        fail_invalid_member!(source_path, index, "must be a string") unless label.is_a?(String)
+        fail_invalid_member!(source_path, index, "must not be blank") if label.blank?
+        if label != label.strip
+          fail_invalid_member!(source_path, index, "must not have surrounding whitespace")
         end
+        return if label.parameterize.present?
+
+        fail_invalid_member!(source_path, index, "must produce a slug")
       end
 
       def validate_duplicates!(labels, source_path)
@@ -58,6 +61,10 @@ module Writing
 
       def fail_invalid_metadata!(source_path, reason)
         fail Invalid, "Invalid topic metadata in #{source_path.inspect}: #{reason}"
+      end
+
+      def fail_invalid_member!(source_path, index, reason)
+        fail_invalid_metadata!(source_path, "topic[#{index}] #{reason}")
       end
     end
   end

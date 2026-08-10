@@ -178,6 +178,7 @@ class Writing::FrontmatterTest < ActiveSupport::TestCase
 
   test "rejects invalid emoji" do
     {
+      nil => "emoji must be a string",
       false => "emoji must be a string",
       1 => "emoji must be a string",
       "" => "emoji must not be blank",

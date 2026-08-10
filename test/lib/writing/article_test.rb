@@ -27,7 +27,7 @@ class Writing::ArticleTest < ActiveSupport::TestCase
 
   test "projects every draft reader from its physical path and frontmatter" do
     source_path = "app/content/pages/writing/drafts/example.markerb"
-    data = valid_data.merge("title" => "Draft", "topic" => ["Hotwire"], "emoji" => nil)
+    data = valid_data.merge("title" => "Draft", "topic" => ["Hotwire"]).except("emoji")
     article = Writing::Article.from(resource("/temporary", source_path, data))
 
     assert_equal "Draft", article.title
@@ -87,6 +87,8 @@ class Writing::ArticleTest < ActiveSupport::TestCase
     refute_respond_to article, :to_hash
     refute_respond_to article, :as_json
     refute_respond_to article, :to_json
+    refute_respond_to article, :instance_values
+    assert_raises(NoMethodError) { article.instance_values }
     refute_includes Writing::Article.instance_methods(false), :method_missing
   end
 

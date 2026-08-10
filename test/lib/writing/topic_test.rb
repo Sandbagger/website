@@ -31,6 +31,14 @@ class Writing::TopicTest < ActiveSupport::TestCase
     refute_same label, topic.label
   end
 
+  test "new and from_props enforce canonical label constraints" do
+    invalid_labels = ["", " ", " Ruby", "Ruby ", "!!!"]
+
+    %i[new from_props].product(invalid_labels).each do |constructor, label|
+      assert_raises(Literal::TypeError) { construct(constructor, label:) }
+    end
+  end
+
   test "converts topic collection metadata into immutable topics" do
     topics = Writing::Topic.from(
       Sitepress::Data.manage("topic" => ["Ruby on Rails", "Phlex"]),
@@ -74,6 +82,23 @@ class Writing::TopicTest < ActiveSupport::TestCase
       "Invalid topic metadata in #{SOURCE_PATH.inspect}: topic[1] must not be blank",
       error.message
     )
+  end
+
+  test "reports invalid members in authored order before duplicates" do
+    {
+      ["", 1] => "topic[0] must not be blank",
+      ["", ""] => "topic[0] must not be blank",
+      ["Ruby", "ruby", ""] => "topic[2] must not be blank"
+    }.each do |labels, reason|
+      error = assert_raises(Writing::Topic::Invalid) do
+        Writing::Topic.from(
+          Sitepress::Data.manage("topic" => labels),
+          source_path: SOURCE_PATH
+        )
+      end
+
+      assert_equal "Invalid topic metadata in #{SOURCE_PATH.inspect}: #{reason}", error.message
+    end
   end
 
   test "rejects topic labels with surrounding whitespace" do
@@ -122,5 +147,14 @@ class Writing::TopicTest < ActiveSupport::TestCase
       "Invalid topic metadata in #{SOURCE_PATH.inspect}: topic[1] #{reason}",
       error.message
     )
+  end
+
+  def construct(constructor, **attributes)
+    case constructor
+    when :new
+      Writing::Topic.new(**attributes)
+    when :from_props
+      Writing::Topic.from_props(attributes)
+    end
   end
 end

@@ -33,7 +33,7 @@ module Writing
       validate_text!(title, "title", source_path)
       topics = topics_from(data, source_path)
       emoji = data.key?("emoji") ? data.fetch("emoji") : nil
-      validate_text!(emoji, "emoji", source_path) unless emoji.nil?
+      validate_text!(emoji, "emoji", source_path) if data.key?("emoji")
 
       build_frontmatter(title:, topics:, emoji:, source_path:)
     end
