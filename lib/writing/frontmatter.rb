@@ -35,9 +35,7 @@ module Writing
       emoji = data.key?("emoji") ? data.fetch("emoji") : nil
       validate_text!(emoji, "emoji", source_path) unless emoji.nil?
 
-      new(title:, topics:, emoji:)
-    rescue Literal::TypeError => error
-      invalid!(source_path, "metadata does not satisfy typed frontmatter", cause: error)
+      build_frontmatter(title:, topics:, emoji:, source_path:)
     end
 
     class << self
@@ -67,6 +65,12 @@ module Writing
       rescue Writing::Topic::Invalid => error
         prefix = "Invalid topic metadata in #{source_path.inspect}: "
         invalid!(source_path, error.message.delete_prefix(prefix), cause: error)
+      end
+
+      def build_frontmatter(title:, topics:, emoji:, source_path:)
+        new(title:, topics:, emoji:)
+      rescue Literal::TypeError => error
+        invalid!(source_path, "metadata does not satisfy typed frontmatter", cause: error)
       end
 
       def invalid!(source_path, reason, cause: nil)

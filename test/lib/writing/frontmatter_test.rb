@@ -29,6 +29,7 @@ class Writing::FrontmatterTest < ActiveSupport::TestCase
     assert_equal "🦄", frontmatter.emoji
     assert_equal equal_frontmatter, frontmatter
     assert frontmatter.eql?(equal_frontmatter)
+    assert_equal equal_frontmatter.hash, frontmatter.hash
     assert_equal original_hash, frontmatter.hash
     assert_predicate frontmatter, :frozen?
     assert_predicate frontmatter.title, :frozen?
@@ -102,9 +103,7 @@ class Writing::FrontmatterTest < ActiveSupport::TestCase
     ]
 
     %i[new from_props].product(invalid_attributes).each do |constructor, attributes|
-      error = assert_raises(Literal::TypeError) { construct(constructor, **attributes) }
-
-      refute_kind_of NoMethodError, error
+      assert_raises(Literal::TypeError) { construct(constructor, **attributes) }
     end
   end
 
@@ -238,6 +237,20 @@ class Writing::FrontmatterTest < ActiveSupport::TestCase
     end
 
     assert_equal "internal failure", error.message
+  end
+
+  test "does not relabel Literal type errors from the data interface" do
+    internal_error = Literal::TypeError.new(
+      context: Literal::TypeError::Context.new(expected: String, actual: 1)
+    )
+    data = Sitepress::Data.manage(valid_data)
+    data.define_singleton_method(:keys) { fail internal_error }
+
+    error = assert_raises(Literal::TypeError) do
+      Writing::Frontmatter.from(data, source_path: SOURCE_PATH)
+    end
+
+    assert_same internal_error, error
   end
 
   private
