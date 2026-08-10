@@ -39,7 +39,7 @@ assert_yaml_title() {
 
   ruby -ryaml -e \
     'abort unless YAML.safe_load(File.read(ARGV[0])).fetch("title") == ARGV[1]' \
-    "$draft_path" "$expected_title"
+    -- "$draft_path" "$expected_title"
 }
 
 assert_yaml_topics() {
@@ -62,7 +62,7 @@ assert_yaml_topics() {
     topic_block.concat(lines.drop(topic_index + 1).take_while { _1.start_with?("  - ") })
     expected_block = ["topic:", *expected_topics.map { "  - #{JSON.generate(_1)}" }]
     abort "noncanonical topic block: #{topic_block.inspect}" unless topic_block == expected_block
-  ' "$draft_path" "$@"
+  ' -- "$draft_path" "$@"
 }
 
 assert_no_success() {
@@ -138,7 +138,7 @@ ruby -e '
   modes = ARGV.map { File.stat(_1).mode & 0777 }
   abort "mode mismatch: template=%04o draft=%04o" % modes unless modes.uniq.one?
 ' \
-  "$basic_project/app/content/templates/writing.makerb" "$draft_path"
+  -- "$basic_project/app/content/templates/writing.makerb" "$draft_path"
 grep -Fx 'Draft created at app/content/pages/writing/drafts/my-new-post.markerb' \
   "$basic_project/write.out"
 test ! -e "$basic_project/app/content/pages/writing/drafts/my-new-post.makerb"
@@ -178,6 +178,52 @@ run_write "$safe_project" "$unicode_title" 'Ruby' "$safe_project/unicode.out"
 unicode_draft="$safe_project/app/content/pages/writing/drafts/caf-d-j.markerb"
 test -f "$unicode_draft"
 assert_yaml_title "$unicode_draft" "$unicode_title"
+
+option_title_project="$temp_dir/option-title"
+make_project "$option_title_project"
+option_title='-eBEGIN{STDERR.write(%q[TITLE_RUBY_EXECUTED])}'
+option_title_output="$option_title_project/write.out"
+option_title_status=0
+run_write "$option_title_project" "$option_title" 'Ruby' \
+  "$option_title_output" || option_title_status=$?
+
+option_topic_project="$temp_dir/option-topic"
+make_project "$option_topic_project"
+option_topic='-eBEGIN{STDERR.write(%q[TOPIC_RUBY_EXECUTED])}'
+option_topic_output="$option_topic_project/write.out"
+option_topic_status=0
+run_write "$option_topic_project" 'Option Topic' "$option_topic" \
+  "$option_topic_output" || option_topic_status=$?
+
+option_regression_failed=0
+if grep -Fq 'TITLE_RUBY_EXECUTED' "$option_title_output"; then
+  echo 'option-like title executed as Ruby code' >&2
+  option_regression_failed=1
+fi
+if grep -Fq 'TOPIC_RUBY_EXECUTED' "$option_topic_output"; then
+  echo 'option-like topic executed as Ruby code' >&2
+  option_regression_failed=1
+fi
+if [[ "$option_title_status" -ne 0 ]]; then
+  echo 'option-like title was not treated as content' >&2
+  option_regression_failed=1
+fi
+if [[ "$option_topic_status" -ne 0 ]]; then
+  echo 'option-like topic was not treated as content' >&2
+  option_regression_failed=1
+fi
+if [[ "$option_regression_failed" -ne 0 ]]; then
+  exit 1
+fi
+
+option_title_slug='ebegin-stderr-write-q-title-ruby-executed'
+option_title_drafts_dir="$option_title_project/app/content/pages/writing/drafts"
+option_title_draft="$option_title_drafts_dir/$option_title_slug.markerb"
+test -f "$option_title_draft"
+assert_yaml_title "$option_title_draft" "$option_title"
+option_topic_draft="$option_topic_project/app/content/pages/writing/drafts/option-topic.markerb"
+test -f "$option_topic_draft"
+assert_yaml_topics "$option_topic_draft" "$option_topic"
 
 for invalid_title in '' '   '; do
   invalid_title_project="$temp_dir/invalid-title-${#invalid_title}"

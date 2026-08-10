@@ -42,7 +42,7 @@ function write {
     return 1
   fi
 
-  if title=$(ruby -e 'print ARGV.fetch(0).strip' "$input"); then
+  if title=$(ruby -e 'print ARGV.fetch(0).strip' -- "$input"); then
     :
   else
     echo "Failed to normalize title" >&2
@@ -56,7 +56,7 @@ function write {
 
   slug=$(ruby -e \
     'print ARGV.fetch(0).downcase.gsub(/[^a-z0-9]+/, "-").sub(/\A-+/, "").sub(/-+\z/, "")' \
-    "$title") || {
+    -- "$title") || {
     echo "Failed to derive draft slug" >&2
     return 1
   }
@@ -78,7 +78,7 @@ function write {
     exit 1 if topics.empty? || topics.any?(&:empty?) || duplicates
 
     print JSON.generate(topics)
-  ' "$topic_input"); then
+  ' -- "$topic_input"); then
     :
   else
     echo "Topics must be a non-empty comma-separated list without blank or duplicate labels" >&2
@@ -115,7 +115,7 @@ function write {
         warn error.message
         exit 3
       end
-    ' "$posts_dir" "$slug" 2>&1); then
+    ' -- "$posts_dir" "$slug" 2>&1); then
       :
     else
       post_scan_status=$?
@@ -188,7 +188,7 @@ function write {
 
     content[frontmatter.begin(:data)...frontmatter.end(:data)] = data
     File.binwrite(path, content)
-  ' "$temporary_path" "$title" "$topics_json"; then
+  ' -- "$temporary_path" "$title" "$topics_json"; then
     :
   else
     substitution_status=$?
