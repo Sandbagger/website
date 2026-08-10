@@ -8,7 +8,7 @@ module Writing
 
     LEGACY_KEYS = %w[status published publish_at].freeze
     class Target < Literal::Data
-      prop :node_names, _Array(String)
+      prop :node_names, _Array(String), &DeepImmutable
       prop :format, Symbol
 
       def existing_resource(root)

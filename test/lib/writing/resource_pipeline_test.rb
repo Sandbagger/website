@@ -143,6 +143,57 @@ class Writing::ResourcePipelineTest < ActiveSupport::TestCase
     assert_predicate target, :frozen?
   end
 
+  test "target deeply owns its node names" do
+    node_names = [+"writing", +"example"]
+    caller_name = node_names.first
+    target = Writing::ResourcePipeline::Target.new(node_names: node_names, format: :html)
+    equal_target = Writing::ResourcePipeline::Target.new(
+      node_names: ["writing", "example"],
+      format: :html
+    )
+    original_hash = target.hash
+
+    caller_name << "-mutated"
+    node_names << +"extra"
+
+    assert_equal ["writing", "example"], target.node_names
+    assert_equal equal_target, target
+    assert_equal original_hash, target.hash
+    assert_predicate target.node_names, :frozen?
+    assert target.node_names.all?(&:frozen?)
+    refute_same node_names, target.node_names
+    refute_same caller_name, target.node_names.first
+    refute_predicate node_names, :frozen?
+    refute_predicate caller_name, :frozen?
+  end
+
+  test "target from_props deeply owns its node names" do
+    node_names = [+"writing", +"example"]
+    caller_name = node_names.first
+    target = Writing::ResourcePipeline::Target.from_props(
+      node_names: node_names,
+      format: :html
+    )
+    equal_target = Writing::ResourcePipeline::Target.new(
+      node_names: ["writing", "example"],
+      format: :html
+    )
+    original_hash = target.hash
+
+    caller_name.replace("changed")
+    node_names.clear
+
+    assert_equal ["writing", "example"], target.node_names
+    assert_equal equal_target, target
+    assert_equal original_hash, target.hash
+    assert_predicate target.node_names, :frozen?
+    assert target.node_names.all?(&:frozen?)
+    refute_same node_names, target.node_names
+    refute_same caller_name, target.node_names.first
+    refute_predicate node_names, :frozen?
+    refute_predicate caller_name, :frozen?
+  end
+
   test "target rejects invalid node names" do
     assert_raises(Literal::TypeError) do
       Writing::ResourcePipeline::Target.new(node_names: [1], format: :html)
