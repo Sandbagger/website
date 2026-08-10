@@ -85,7 +85,35 @@ class Writing::ArticleTest < ActiveSupport::TestCase
     refute_respond_to article, :fetch_data
     refute_respond_to article, :to_h
     refute_respond_to article, :to_hash
+    refute_respond_to article, :as_json
+    refute_respond_to article, :to_json
     refute_includes Writing::Article.instance_methods(false), :method_missing
+  end
+
+  test "rejects generic hash conversion" do
+    article = Writing::Article.from(
+      resource(
+        "/temporary",
+        "app/content/pages/writing/posts/2024-03-10-example.markerb",
+        valid_data
+      )
+    )
+
+    assert_raises(TypeError) { Hash(article) }
+  end
+
+  test "rejects direct and Active Support JSON serialization" do
+    article = Writing::Article.from(
+      resource(
+        "/temporary",
+        "app/content/pages/writing/posts/2024-03-10-example.markerb",
+        valid_data
+      )
+    )
+
+    assert_raises(NoMethodError) { article.as_json }
+    assert_raises(NoMethodError) { article.to_json }
+    assert_raises(NoMethodError) { ActiveSupport::JSON.encode(article) }
   end
 
   test "retains only the immutable path and frontmatter projections" do

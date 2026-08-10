@@ -36,6 +36,6 @@ module Writing
 
     def after_initialize = freeze
 
-    private :to_h, :to_hash
+    undef_method :to_h, :to_hash, :as_json, :to_json
   end
 end
