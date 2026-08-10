@@ -7,14 +7,14 @@ module Writing
       @clock = clock
     end
 
-    def published?(path)
-      path.post? && path.publication_date <= today
+    def published?(article)
+      article.post? && article.publication_date <= today
     end
 
-    def accessible?(path)
-      return !production? if path.draft?
+    def accessible?(article)
+      return !production? if article.draft?
 
-      !production? || published?(path)
+      !production? || published?(article)
     end
 
     private
