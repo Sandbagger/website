@@ -127,7 +127,7 @@ assert_no_partial_draft \
 
 basic_project="$temp_dir/basic"
 make_project "$basic_project"
-run_write "$basic_project" 'My New Post' \
+run_write "$basic_project" '  My New Post  ' \
   ' Ruby on Rails , Sitepress ' "$basic_project/write.out"
 
 draft_path="$basic_project/app/content/pages/writing/drafts/my-new-post.markerb"
@@ -171,7 +171,7 @@ quoted_title='  A & B: "quoted" \ slash  '
 run_write "$safe_project" "$quoted_title" 'Ruby' "$safe_project/quoted.out"
 quoted_draft="$safe_project/app/content/pages/writing/drafts/a-b-quoted-slash.markerb"
 test -f "$quoted_draft"
-assert_yaml_title "$quoted_draft" "$quoted_title"
+assert_yaml_title "$quoted_draft" 'A & B: "quoted" \ slash'
 
 unicode_title='Café — Déjà'
 run_write "$safe_project" "$unicode_title" 'Ruby' "$safe_project/unicode.out"
@@ -179,17 +179,16 @@ unicode_draft="$safe_project/app/content/pages/writing/drafts/caf-d-j.markerb"
 test -f "$unicode_draft"
 assert_yaml_title "$unicode_draft" "$unicode_title"
 
-for invalid_title in '' '...///!!!'; do
+for invalid_title in '' '   '; do
   invalid_title_project="$temp_dir/invalid-title-${#invalid_title}"
   make_project "$invalid_title_project"
   invalid_output="$invalid_title_project/write.out"
   if run_write "$invalid_title_project" "$invalid_title" 'Ruby' \
     "$invalid_output"; then
-    echo "expected title without ASCII alphanumerics to be refused" >&2
+    echo "expected blank title to be refused" >&2
     exit 1
   fi
-  grep -Fx 'Title must contain at least one ASCII letter or number' \
-    "$invalid_output"
+  grep -Fx 'Title must not be blank' "$invalid_output"
   if grep -Fq 'Enter comma-separated topics for your blog post:' \
     "$invalid_output"; then
     echo 'topic prompt appeared before title validation' >&2
@@ -200,6 +199,25 @@ for invalid_title in '' '...///!!!'; do
   assert_no_partial_draft \
     "$invalid_title_project/app/content/pages/writing/drafts"
 done
+
+punctuation_project="$temp_dir/punctuation-title"
+make_project "$punctuation_project"
+if run_write "$punctuation_project" '...///!!!' 'Ruby' \
+  "$punctuation_project/write.out"; then
+  echo 'expected title without ASCII alphanumerics to be refused' >&2
+  exit 1
+fi
+grep -Fx 'Title must contain at least one ASCII letter or number' \
+  "$punctuation_project/write.out"
+if grep -Fq 'Enter comma-separated topics for your blog post:' \
+  "$punctuation_project/write.out"; then
+  echo 'topic prompt appeared before title validation' >&2
+  exit 1
+fi
+test ! -d "$punctuation_project/app/content/pages/writing/drafts"
+assert_no_success "$punctuation_project/write.out"
+assert_no_partial_draft \
+  "$punctuation_project/app/content/pages/writing/drafts"
 
 yaml_project="$temp_dir/yaml-topics"
 make_project "$yaml_project"

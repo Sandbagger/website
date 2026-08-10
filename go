@@ -42,9 +42,21 @@ function write {
     return 1
   fi
 
+  if title=$(ruby -e 'print ARGV.fetch(0).strip' "$input"); then
+    :
+  else
+    echo "Failed to normalize title" >&2
+    return 1
+  fi
+
+  if [[ -z "$title" ]]; then
+    echo "Title must not be blank" >&2
+    return 1
+  fi
+
   slug=$(ruby -e \
     'print ARGV.fetch(0).downcase.gsub(/[^a-z0-9]+/, "-").sub(/\A-+/, "").sub(/-+\z/, "")' \
-    "$input") || {
+    "$title") || {
     echo "Failed to derive draft slug" >&2
     return 1
   }
@@ -176,7 +188,7 @@ function write {
 
     content[frontmatter.begin(:data)...frontmatter.end(:data)] = data
     File.binwrite(path, content)
-  ' "$temporary_path" "$input" "$topics_json"; then
+  ' "$temporary_path" "$title" "$topics_json"; then
     :
   else
     substitution_status=$?
