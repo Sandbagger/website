@@ -116,6 +116,26 @@ class Writing::ArticleTest < ActiveSupport::TestCase
     assert_raises(NoMethodError) { ActiveSupport::JSON.encode(article) }
   end
 
+  test "Ruby JSON generation exposes only the opaque object string" do
+    article = Writing::Article.from(
+      resource(
+        "/temporary",
+        "app/content/pages/writing/posts/2024-03-10-example.markerb",
+        valid_data
+      )
+    )
+
+    json = JSON.generate(article)
+
+    assert_equal article.to_s, JSON.parse(json)
+    refute_includes json, "Writing::Path"
+    refute_includes json, "Writing::Frontmatter"
+    refute_includes json, article.source_path
+    refute_includes json, article.title
+    article.topics.each { refute_includes json, _1.label }
+    refute_includes json, article.emoji
+  end
+
   test "retains only the immutable path and frontmatter projections" do
     sitepress_resource = resource(
       "/temporary",
