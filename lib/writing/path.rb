@@ -9,7 +9,7 @@ module Writing
     attr_reader :source_path, :slug, :publication_date
 
     def initialize(source_path)
-      @source_path = source_path.to_s
+      @source_path = source_path.to_s.dup.freeze
       kind, filename = classify!
       stem = strip_handler_extension!(filename, allow_extensionless: kind == "drafts")
 
@@ -20,6 +20,8 @@ module Writing
       end
 
       @post = kind == "posts"
+      @slug.freeze
+      freeze
     end
 
     def post? = @post

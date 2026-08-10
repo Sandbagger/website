@@ -59,6 +59,53 @@ class Writing::PathTest < ActiveSupport::TestCase
     assert_not_predicate path, :post?
   end
 
+  test "owns and freezes parsed post values without freezing the caller" do
+    source_path = +"app/content/pages/writing/posts/2024-03-10-example.markerb"
+
+    path = Writing::Path.new(source_path)
+    source_path.replace("app/content/pages/writing/drafts/changed.markerb")
+
+    assert_equal "app/content/pages/writing/posts/2024-03-10-example.markerb", path.source_path
+    assert_equal "example", path.slug
+    assert_equal Date.new(2024, 3, 10), path.publication_date
+    assert_equal "/writing/example", path.request_path
+    assert_predicate path, :post?
+    assert_not_predicate path, :draft?
+    refute_same source_path, path.source_path
+    assert_predicate path.source_path, :frozen?
+    assert_predicate path.slug, :frozen?
+    assert_predicate path, :frozen?
+    refute_predicate source_path, :frozen?
+  end
+
+  test "owns and freezes parsed draft values without freezing the caller" do
+    source_path = +"app/content/pages/writing/drafts/example.markerb"
+
+    path = Writing::Path.new(source_path)
+    source_path.replace("app/content/pages/writing/posts/2024-04-20-changed.markerb")
+
+    assert_equal "app/content/pages/writing/drafts/example.markerb", path.source_path
+    assert_equal "example", path.slug
+    assert_nil path.publication_date
+    assert_equal "/writing/drafts/example", path.request_path
+    assert_predicate path, :draft?
+    assert_not_predicate path, :post?
+    refute_same source_path, path.source_path
+    assert_predicate path.source_path, :frozen?
+    assert_predicate path.slug, :frozen?
+    assert_predicate path, :frozen?
+    refute_predicate source_path, :frozen?
+  end
+
+  test "does not freeze or mutate an invalid caller source" do
+    source_path = +"app/content/pages/writing/posts/example.markerb"
+
+    assert_raises(Writing::Path::Invalid) { Writing::Path.new(source_path) }
+
+    assert_equal "app/content/pages/writing/posts/example.markerb", source_path
+    refute_predicate source_path, :frozen?
+  end
+
   test "extensionless draft preserves its slug" do
     path = Writing::Path.new(
       "app/content/pages/writing/drafts/tailwind-vs-semantic-css"
