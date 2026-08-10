@@ -16,12 +16,18 @@ class WritingBootValidationTest < ActiveSupport::TestCase
   test "invalid writing content aborts boot before runner code executes" do
     runner_sentinel = "WRITING_RUNNER_EXECUTED"
     stdout, stderr, status, source_path, temporary_root = capture_invalid_boot(
-      runner_sentinel
+      runner_sentinel,
+      frontmatter: <<~YAML
+        title: Invalid boot resource
+        topic:
+          - Ruby
+        status: draft
+      YAML
     )
     output = stdout + stderr
 
     refute_predicate status, :success?, output
-    assert_includes output, "Legacy writing metadata \"status\""
+    assert_includes output, 'unknown metadata "status"'
     assert_includes output, source_path.to_s
     refute_includes output, runner_sentinel
     refute_predicate temporary_root, :exist?
@@ -31,8 +37,10 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     runner_sentinel = "WRITING_TOPIC_RUNNER_EXECUTED"
     stdout, stderr, status, source_path, temporary_root = capture_invalid_boot(
       runner_sentinel,
-      topic: "Ruby",
-      metadata: nil
+      frontmatter: <<~YAML
+        title: Invalid boot resource
+        topic: Ruby
+      YAML
     )
     output = stdout + stderr
 
@@ -43,11 +51,74 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     refute_predicate temporary_root, :exist?
   end
 
+  test "malformed title aborts boot before runner code executes" do
+    runner_sentinel = "WRITING_TITLE_RUNNER_EXECUTED"
+    stdout, stderr, status, source_path, temporary_root = capture_invalid_boot(
+      runner_sentinel,
+      frontmatter: <<~YAML
+        title: 123
+        topic:
+          - Ruby
+      YAML
+    )
+    output = stdout + stderr
+
+    refute_predicate status, :success?, output
+    assert_includes output, "title must be a string"
+    assert_includes output, source_path.to_s
+    refute_includes output, runner_sentinel
+    refute_predicate temporary_root, :exist?
+  end
+
+  test "missing required key aborts boot before runner code executes" do
+    runner_sentinel = "WRITING_MISSING_KEY_RUNNER_EXECUTED"
+    stdout, stderr, status, source_path, temporary_root = capture_invalid_boot(
+      runner_sentinel,
+      frontmatter: <<~YAML
+        topic:
+          - Ruby
+      YAML
+    )
+    output = stdout + stderr
+
+    refute_predicate status, :success?, output
+    assert_includes output, "missing title metadata"
+    assert_includes output, source_path.to_s
+    refute_includes output, runner_sentinel
+    refute_predicate temporary_root, :exist?
+  end
+
+  test "unknown key aborts boot before runner code executes" do
+    runner_sentinel = "WRITING_UNKNOWN_KEY_RUNNER_EXECUTED"
+    stdout, stderr, status, source_path, temporary_root = capture_invalid_boot(
+      runner_sentinel,
+      frontmatter: <<~YAML
+        title: Invalid boot resource
+        topic:
+          - Ruby
+        layout: article
+      YAML
+    )
+    output = stdout + stderr
+
+    refute_predicate status, :success?, output
+    assert_includes output, 'unknown metadata "layout"'
+    assert_includes output, source_path.to_s
+    refute_includes output, runner_sentinel
+    refute_predicate temporary_root, :exist?
+  end
+
   test "scalar-topic boot fixture contains exactly one topic key" do
     Dir.mktmpdir("writing-boot-validation") do |directory|
       temporary_root = Pathname.new(directory)
       FileUtils.mkdir_p(temporary_root.join("app/content/pages/writing/posts"))
-      source_path = write_invalid_resource(temporary_root, topic: "Ruby", metadata: nil)
+      source_path = write_invalid_resource(
+        temporary_root,
+        frontmatter: <<~YAML
+          title: Invalid boot resource
+          topic: Ruby
+        YAML
+      )
       contents = File.read(source_path)
 
       assert_equal 1, contents.lines.grep(/^topic:/).size
@@ -68,12 +139,12 @@ class WritingBootValidationTest < ActiveSupport::TestCase
   ].freeze
   SAFE_CONFIG_DIRECTORIES = %w[environments initializers locales].freeze
 
-  def capture_invalid_boot(runner_sentinel, topic: ["Ruby"], metadata: "status: draft")
+  def capture_invalid_boot(runner_sentinel, frontmatter:)
     temporary_root = nil
     result = Dir.mktmpdir("writing-boot-validation") do |directory|
       temporary_root = Pathname.new(directory)
       build_temporary_application(temporary_root)
-      source_path = write_invalid_resource(temporary_root, topic:, metadata:)
+      source_path = write_invalid_resource(temporary_root, frontmatter:)
 
       [
         *run_boot(temporary_root, runner_sentinel),
@@ -126,26 +197,19 @@ class WritingBootValidationTest < ActiveSupport::TestCase
     end
   end
 
-  def write_invalid_resource(temporary_root, topic:, metadata:)
+  def write_invalid_resource(temporary_root, frontmatter:)
     source_path = temporary_root.join(
       "app/content/pages/writing/posts/2000-01-01-boot-invalid-#{SecureRandom.hex(8)}.markerb"
     )
 
     File.write(source_path, <<~CONTENT)
       ---
-      title: Invalid boot resource
-      #{topic_metadata(topic)}#{metadata}
+      #{frontmatter}
       ---
       Invalid boot resource
     CONTENT
 
     source_path
-  end
-
-  def topic_metadata(topic)
-    return "topic: #{topic}\n" unless topic.is_a?(Array)
-
-    "topic:\n#{topic.map { |label| "  - #{label}\n" }.join}"
   end
 
   def run_boot(temporary_root, runner_sentinel)

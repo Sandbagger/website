@@ -2,6 +2,8 @@
 
 require Rails.root.join("lib/writing/path").to_s
 require Rails.root.join("lib/writing/topic").to_s
+require Rails.root.join("lib/writing/frontmatter").to_s
+require Rails.root.join("lib/writing/article").to_s
 require Rails.root.join("lib/writing/topic_page").to_s
 require Rails.root.join("lib/writing/resource_pipeline").to_s
 

@@ -6,7 +6,6 @@ module Writing
   class ResourcePipeline
     class Invalid < StandardError; end
 
-    LEGACY_KEYS = %w[status published publish_at].freeze
     class Target < Literal::Data
       prop :node_names, _Array(String), &DeepImmutable
       prop :format, Symbol
@@ -22,13 +21,8 @@ module Writing
 
     class Entry < Literal::Data
       prop :resource, Sitepress::Resource
-      prop :path, Path
+      prop :article, Writing::Article
       prop :target, _Nilable(Target)
-      prop :topics, _Array(Writing::Topic), &Immutable
-
-      def initialize(resource:, path:, target:, topics:)
-        super
-      end
     end
 
     def initialize(environment:, pages_path:, topic_template_path:)
@@ -40,14 +34,12 @@ module Writing
     def process(root)
       entries = writing_resources(root).map do |resource|
         validate_page_source!(resource)
-        path = Path.new(resource.source.path)
-        topics = topics_from(resource, path)
-        target = canonical_target(path) if path.post?
+        article = article_from(resource)
+        target = canonical_target(article) if article.post?
 
-        Entry.new(resource: resource, path: path, target: target, topics: topics)
+        Entry.new(resource:, article:, target:)
       end
 
-      validate_legacy_metadata!(entries)
       validate_slug_uniqueness!(entries)
       validate_topic_registry!(entries)
       topic_plan = planned_topics(entries)
@@ -77,20 +69,11 @@ module Writing
       relative_path.each_filename.first == "writing"
     end
 
-    def validate_legacy_metadata!(entries)
-      entries.each do |entry|
-        key = entry.resource.data.keys.map(&:to_s).find { |name| LEGACY_KEYS.include?(name) }
-        next unless key
-
-        fail Invalid, "Legacy writing metadata #{key.inspect} in #{entry.path.source_path}"
-      end
-    end
-
     def validate_slug_uniqueness!(entries)
-      entries.group_by { |entry| entry.path.slug }.each do |slug, duplicates|
+      entries.group_by { |entry| entry.article.slug }.each do |slug, duplicates|
         next unless duplicates.size > 1
 
-        sources = duplicates.map { |entry| entry.path.source_path }
+        sources = duplicates.map { |entry| entry.article.source_path }
         fail Invalid, "Duplicate writing slug #{slug.inspect}: #{sources.join(", ")}"
       end
     end
@@ -117,15 +100,16 @@ module Writing
     end
 
     def validate_collisions!(root, entries)
-      posts_by_target = entries.select { |entry| entry.path.post? }.group_by(&:target)
+      posts_by_target = entries.select { |entry| entry.article.post? }.group_by(&:target)
 
       posts_by_target.each do |target, posts|
         existing = target.existing_resource(root)
-        sources = posts.map { |entry| entry.path.source_path }
+        sources = posts.map { |entry| entry.article.source_path }
         sources << existing.source.path.to_s if existing && !posts.any? { |entry| entry.resource.equal?(existing) }
         next unless sources.size > 1
 
-        fail Invalid, "Duplicate canonical writing path #{posts.first.path.request_path}: #{sources.join(", ")}"
+        fail Invalid,
+          "Duplicate canonical writing path #{posts.first.article.request_path}: #{sources.join(", ")}"
       end
     end
 
@@ -146,8 +130,8 @@ module Writing
       end
     end
 
-    def canonical_target(path)
-      sitepress_path = Sitepress::Path.new(path.request_path)
+    def canonical_target(article)
+      sitepress_path = Sitepress::Path.new(article.request_path)
       format = sitepress_path.format || Sitepress::Node::DEFAULT_FORMAT
 
       Target.new(node_names: sitepress_path.node_names, format: format)
@@ -161,31 +145,31 @@ module Writing
       )
     end
 
-    def topics_from(resource, path)
-      Writing::Topic.from(resource.data, source_path: path.source_path)
-    rescue Writing::Topic::Invalid => error
+    def article_from(resource)
+      Writing::Article.from(resource)
+    rescue Writing::Frontmatter::Invalid => error
       fail Invalid, error.message, cause: error
     end
 
     def topic_occurrences(entries)
       entries.flat_map do |entry|
-        entry.topics.map { |topic| [topic, entry.path.source_path] }
+        entry.article.topics.map { |topic| [topic, entry.article.source_path] }
       end
     end
 
     def generated_topics(entries)
-      planned_topics(entries.select { |entry| entry.path.post? || environment != "production" })
+      planned_topics(entries.select { |entry| entry.article.post? || environment != "production" })
     end
 
     def planned_topics(entries)
-      entries.flat_map(&:topics).uniq(&:slug)
+      entries.flat_map { |entry| entry.article.topics }.uniq(&:slug)
     end
 
     def topic_sources(entries, topic)
       entries.flat_map do |entry|
-        next [] unless entry.topics.any? { |entry_topic| entry_topic.slug == topic.slug }
+        next [] unless entry.article.topics.any? { |entry_topic| entry_topic.slug == topic.slug }
 
-        entry.path.source_path
+        entry.article.source_path
       end
     end
 
@@ -194,14 +178,14 @@ module Writing
     end
 
     def apply(root, entry)
-      if entry.path.draft?
+      if entry.article.draft?
         if environment == "production"
           entry.resource.remove
         else
           prepare_draft_preview(entry.resource)
         end
       else
-        entry.resource.data["publish_at"] = entry.path.publication_date
+        entry.resource.data["publish_at"] = entry.article.publication_date
         move_to_canonical_node(root, entry)
       end
     end
