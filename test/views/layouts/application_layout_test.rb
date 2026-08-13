@@ -1,6 +1,8 @@
 require "test_helper"
 
 class ApplicationLayoutTest < ActiveSupport::TestCase
+  STANDARD_SITE_DID = "did:plc:up3nnmpgt6obeinnanblyc6h"
+
   test "article header becomes text only when no cover is attached" do
     layout = ApplicationLayout.new
     layout.page_kind(:article)
@@ -78,6 +80,31 @@ class ApplicationLayoutTest < ActiveSupport::TestCase
 
     assert_equal "12 October 2025", document.at_css(".article-meta").text
     assert_equal "12 October 2025", document.at_css(".article-facts dd").text
+  end
+
+  test "published Standard.site records are discoverable from the page head" do
+    publication_uri = "at://#{STANDARD_SITE_DID}/site.standard.publication/3publication"
+    document_uri = "at://#{STANDARD_SITE_DID}/site.standard.document/3document"
+    registry = AtProtocol::StandardSite::Registry.new(
+      path: Rails.root.join("tmp/unused-standard-site.json"),
+      data: {
+        "did" => STANDARD_SITE_DID,
+        "pdsUrl" => "https://eurosky.social",
+        "publicationUri" => publication_uri,
+        "documents" => {"example" => document_uri}
+      }
+    )
+    layout = Class.new(ApplicationLayout) do
+      def view_template
+        html { head { standard_site_links } }
+      end
+    end.new(standard_site: registry)
+    layout.standard_site_document("example")
+
+    document = Nokogiri::HTML5.parse(layout.call)
+
+    assert_equal publication_uri, document.at_css("link[rel='site.standard.publication']")["href"]
+    assert_equal document_uri, document.at_css("link[rel='site.standard.document']")["href"]
   end
 
   private

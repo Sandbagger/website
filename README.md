@@ -17,6 +17,30 @@ database backups; configure and test host snapshots or backups separately.
 - a boon for view composition
 - as an alternative to machine-gunning utility classes I am following the philosophy of https://every-layout.dev/ in the of layout primitives. Each layout primitive is its own component.
 
+## Standard.site / AT Protocol
+
+Published writing can be registered on AT Protocol using the Standard.site
+publication and document lexicons. The checked-in registry at
+`config/standard_site.json` maps local article slugs to their AT URIs. Rails
+uses it to expose the publication verification endpoint and document discovery
+links without making network requests while serving pages.
+
+Create an app password for the configured AT Protocol account, then publish or
+update all currently public articles with:
+
+```sh
+bin/rails standard_site:publish
+```
+
+Use an app password rather than the account password. The command prompts for
+it without echoing and never writes it to the repository. For non-interactive
+use, pass it in `ATPROTO_APP_PASSWORD`. The task is idempotent: it creates
+missing records, updates known records, and persists returned AT URIs after
+every successful write. Commit the resulting `config/standard_site.json`
+changes, deploy them, and verify
+`/.well-known/site.standard.publication` plus each article's
+`<link rel="site.standard.document">` tag.
+
 ## Design system (work in progess)
 
 - embrace the cascade — the order of require statements in the application.css is important.

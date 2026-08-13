@@ -35,7 +35,7 @@ class SiteChromeTest < ActionDispatch::IntegrationTest
     assert_select "footer" do
       assert_select "a[href='/feed']", text: "RSS"
       assert_select "a[href='https://ruby.social/@Sandbagger'][target='_blank'][rel~='me'][rel~='noopener'][rel~='noreferrer']", text: "Mastodon"
-      assert_select "a[href='https://bsky.app/profile/williamneal.bsky.social'][target='_blank'][rel~='me'][rel~='noopener'][rel~='noreferrer']", text: "Bluesky"
+      assert_select "a[href='https://bsky.app/profile/did:plc:up3nnmpgt6obeinnanblyc6h'][target='_blank'][rel~='me'][rel~='noopener'][rel~='noreferrer']", text: "Bluesky"
     end
   end
 end

@@ -34,6 +34,7 @@ module Sitepress
             topics: article.topics,
             publication_date: article.publication_date
           )
+          layout.standard_site_document(article.slug)
         end
         attach_cover(layout, article || page)
         layout.markdown(render_resource_inline(page))

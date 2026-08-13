@@ -9,7 +9,7 @@ class FooterComponent < ApplicationComponent
         ul(class: "cluster", role: "list") do
           li { link_to "RSS", "/feed" }
           li { external_link("Mastodon", "https://ruby.social/@Sandbagger") }
-          li { external_link("Bluesky", "https://bsky.app/profile/williamneal.bsky.social") }
+          li { external_link("Bluesky", "https://bsky.app/profile/did:plc:up3nnmpgt6obeinnanblyc6h") }
         end
       end
     end

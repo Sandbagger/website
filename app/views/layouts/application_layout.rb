@@ -9,12 +9,14 @@ class ApplicationLayout < ApplicationView
     "min(calc(100vw - clamp(2.2rem, 8vw, 6rem)), 36rem), " \
     "22rem"
 
-  def initialize
+  def initialize(standard_site: AtProtocol::StandardSite.registry)
     @partials = []
     @cover_image = nil
     @page_title = nil
     @page_kind = :default
     @page_metadata = {}
+    @standard_site = standard_site
+    @standard_site_document_uri = nil
   end
 
   def view_template
@@ -43,6 +45,7 @@ class ApplicationLayout < ApplicationView
         link(rel: "manifest", href: "/site.webmanifest")
         link(rel: "mask-icon", href: "/safari-pinned-tab.svg", color: "#61b9d2")
         link(rel: "alternate", type: "application/rss+xml", title: "William Neal's RSS feed", href: "https://williamneal.dev/feed")
+        standard_site_links
       end
 
       body do
@@ -77,6 +80,10 @@ class ApplicationLayout < ApplicationView
   def page_metadata(topics: [], publication_date: nil)
     @page_metadata = {topics:, publication_date:}.compact_blank
   end
+
+  def standard_site_document(slug)
+    @standard_site_document_uri = @standard_site.document_uri(slug)
+  end
   # standard:enable Style/TrivialAccessors
 
   def partial(component)
@@ -85,6 +92,15 @@ class ApplicationLayout < ApplicationView
   end
 
   private
+
+  def standard_site_links
+    if @standard_site.publication_uri
+      link rel: "site.standard.publication", href: @standard_site.publication_uri
+    end
+    if @standard_site_document_uri
+      link rel: "site.standard.document", href: @standard_site_document_uri
+    end
+  end
 
   def article?
     @page_kind == :article
